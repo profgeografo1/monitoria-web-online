@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gestão de Monitorias — Painel Web</title>
+  <title>Gestão de Monitorias — Painel Web + Drive</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.7/dist/pizzip.min.js"></script>
@@ -20,6 +20,9 @@
       --primary-soft: #eff6ff;
       --success: #059669;
       --success-hover: #047857;
+      --drive: #0f766e;
+      --drive-hover: #115e59;
+      --drive-soft: #f0fdfa;
       --danger: #dc2626;
       --text: #0f172a;
       --muted: #64748b;
@@ -65,8 +68,9 @@
     .brand h1 { margin: 0; font-size: 1.15rem; }
     .brand p { margin: .15rem 0 0; color: var(--muted); font-size: .8rem; }
     .pill {
-      background: var(--primary-soft);
-      color: var(--primary);
+      background: var(--drive-soft);
+      color: var(--drive);
+      border: 1px solid #ccfbf1;
       padding: .3rem .75rem;
       border-radius: 999px;
       font-size: .78rem;
@@ -118,6 +122,25 @@
       border-color: var(--primary);
       box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
     }
+    .drive-box {
+      background: var(--drive-soft);
+      border: 1px solid #99f6e4;
+      border-radius: 10px;
+      padding: 1rem;
+      margin-top: 1rem;
+    }
+    .drive-box-title {
+      font-size: .85rem;
+      font-weight: 700;
+      color: var(--drive);
+      margin-bottom: .75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: .5rem;
+    }
+    .inline-group { display: flex; gap: .5rem; align-items: center; }
     .dropzone {
       border: 2px dashed #cbd5e1;
       border-radius: 10px;
@@ -140,12 +163,16 @@
       font-size: .88rem;
       font-weight: 700;
       cursor: pointer;
+      white-space: nowrap;
     }
+    .btn-sm { padding: .45rem .8rem; font-size: .82rem; }
     .btn:disabled { opacity: .6; cursor: not-allowed; }
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
     .btn-success { background: var(--success); color: #fff; }
     .btn-success:hover:not(:disabled) { background: var(--success-hover); }
+    .btn-drive { background: var(--drive); color: #fff; }
+    .btn-drive:hover:not(:disabled) { background: var(--drive-hover); }
     .btn-outline { background: #fff; color: var(--text); border: 1px solid var(--border); }
     .btn-icon {
       background: transparent;
@@ -203,10 +230,10 @@
       <div class="brand-icon">M</div>
       <div>
         <h1>Gestão de Monitorias</h1>
-        <p>Extração de fichas manuscritas, consolidação de horas e emissão de atestados</p>
+        <p>Extração de fichas manuscritas, gerenciador de pastas Google Drive e emissão de atestados</p>
       </div>
     </div>
-    <span class="pill">● Modo Leve • Chromebook Ready</span>
+    <span class="pill">● Modo Leve • Controle Total Drive</span>
   </div>
 </header>
 
@@ -217,7 +244,7 @@
       <summary class="card-header" style="margin-bottom:0">
         <div class="step-title">
           <span class="step-badge">1</span>
-          <span>Configuração do Motor de Visão (API)</span>
+          <span>Configuração da IA e Gerenciador de Pastas do Drive</span>
         </div>
         <span class="helper" style="margin:0">Clique para expandir / recolher ▾</span>
       </summary>
@@ -239,7 +266,35 @@
           <input type="text" id="apiModel" value="gemini-3.8-flash">
         </div>
       </div>
-      <span class="helper">Para Google AI Studio, use <code>gemini-3.8-flash</code> ou <code>gemini-3.5-flash-lite</code>.</span>
+
+      <div class="drive-box">
+        <div class="drive-box-title">
+          <span>☁ Conexão e Controle de Pastas do Google Drive</span>
+          <button type="button" class="btn btn-drive btn-sm" id="btnCarregarPastas" onclick="carregarPastasDrive()">Atualizar Lista de Pastas</button>
+        </div>
+        <div class="field" style="margin-bottom:.75rem">
+          <label for="driveWebhookUrl">URL do App da Web (Google Apps Script)</label>
+          <input type="text" id="driveWebhookUrl" placeholder="https://script.google.com/macros/s/.../exec" onchange="salvarConfig()">
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="selectPastaOrigem">Pasta de Origem (PDFs e Modelo Word)</label>
+            <select id="selectPastaOrigem" onchange="salvarConfig()">
+              <option value="">Clique em "Atualizar Lista de Pastas"...</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="selectPastaDestino">Pasta de Destino (Onde salvar Planilha e Atestados)</label>
+            <div class="inline-group">
+              <select id="selectPastaDestino" onchange="salvarConfig()">
+                <option value="">Clique em "Atualizar Lista de Pastas"...</option>
+              </select>
+              <button type="button" class="btn btn-outline btn-sm" onclick="criarNovaPastaDrive()" title="Criar uma nova pasta dentro do destino selecionado">+ Nova Pasta</button>
+            </div>
+          </div>
+        </div>
+        <div id="statusDriveConfig" class="status-msg"></div>
+      </div>
     </details>
   </section>
 
@@ -250,9 +305,10 @@
         <span class="step-badge">2</span>
         <span>Importar Fichas Digitalizadas (.pdf)</span>
       </div>
+      <button class="btn btn-drive" id="btnPuxarDrive" onclick="sincronizarComDrive()">☁ Puxar Arquivos da Pasta Selecionada</button>
     </div>
     <div class="dropzone" id="zonaPdf" onclick="document.getElementById('inputPdfs').click()">
-      <strong id="labelArquivosPdf">Clique aqui ou arraste os arquivos PDF das monitorias</strong>
+      <strong id="labelArquivosPdf">Clique aqui, arraste PDFs locais ou puxe da pasta selecionada acima</strong>
       <span>Suporta múltiplas páginas e escrita manuscrita</span>
       <input type="file" id="inputPdfs" accept=".pdf" multiple style="display:none" onchange="atualizarLabelPdf()">
     </div>
@@ -295,7 +351,8 @@
       </table>
     </div>
     <div class="actions-row">
-      <button class="btn btn-primary" onclick="baixarExcel()">1º Baixar Planilha Consolidada (.xlsx)</button>
+      <button class="btn btn-primary" onclick="baixarExcel()">Baixar Planilha (.xlsx)</button>
+      <button class="btn btn-drive" onclick="salvarPlanilhaNoDrive()">☁ Salvar Planilha na Pasta de Destino</button>
     </div>
   </section>
 
@@ -308,25 +365,40 @@
       </div>
     </div>
     <p class="helper" style="margin:.25rem 0 1rem">
-      Gera um único arquivo Word por monitor somando todas as horas. Pode usar os dados acima ou importar uma planilha <code>.xlsx</code> revisada.
+      Gera um único arquivo Word por monitor somando todas as horas. Antes de salvar no Drive, você pode escolher ou criar a pasta de destino abaixo.
     </p>
     <div class="grid-2">
       <div class="dropzone" onclick="document.getElementById('inputDocx').click()">
-        <strong id="labelDocx">1. Selecionar Modelo Word (.docx) *Obrigatório</strong>
-        <span>Timbrado institucional com tags de preenchimento</span>
-        <input type="file" id="inputDocx" accept=".docx" style="display:none" onchange="atualizarLabelDocx()">
+        <strong id="labelDocx">1. Modelo Word (.docx) *Obrigatório</strong>
+        <span>Clique para escolher arquivo local ou puxe do Drive</span>
+        <input type="file" id="inputDocx" accept=".docx" style="display:none" onchange="limparDriveDocx()">
       </div>
       <div class="dropzone" onclick="document.getElementById('inputXlsxRevisado').click()">
-        <strong id="labelXlsx">2. Importar Planilha Revisada (.xlsx) *Opcional</strong>
+        <strong id="labelXlsx">2. Planilha Revisada (.xlsx) *Opcional</strong>
         <span>Lê a guia <code>Somatoria_Por_Monitor</code></span>
-        <input type="file" id="inputXlsxRevisado" accept=".xlsx,.xls" style="display:none" onchange="atualizarLabelXlsx()">
+        <input type="file" id="inputXlsxRevisado" accept=".xlsx,.xls" style="display:none" onchange="limparDriveXlsx()">
       </div>
     </div>
+
+    <!-- Controle rápido de destino antes de salvar -->
+    <div class="drive-box" style="margin-top:.5rem; margin-bottom:1rem;">
+      <div class="field">
+        <label for="selectPastaDestinoFinal">Onde salvar no Google Drive (Destino dos Atestados):</label>
+        <div class="inline-group">
+          <select id="selectPastaDestinoFinal" onchange="sincronizarDestinoSelects(this.value)">
+            <option value="">Configure a URL do Drive na Etapa 1 para listar pastas...</option>
+          </select>
+          <button type="button" class="btn btn-outline btn-sm" onclick="criarNovaPastaDrive()">+ Criar Nova Pasta</button>
+        </div>
+      </div>
+    </div>
+
     <span class="helper">
       Tags aceitas: <code>{{ nome_monitor }}</code>, <code>{{ total_horas }}</code>, <code>{{ total_horas_extenso }}</code>, <code>{{ turma_ou_disciplina }}</code>, <code>{{ data_emissao }}</code>, <code>{{ texto_atestado }}</code>.
     </span>
     <div class="actions-row">
-      <button class="btn btn-success" id="btnGerarAtestados" onclick="gerarAtestadosZip()">Gerar Atestados Consolidados (.zip)</button>
+      <button class="btn btn-success" id="btnGerarAtestados" onclick="gerarAtestados('zip')">Baixar Atestados (.zip)</button>
+      <button class="btn btn-drive" id="btnSalvarAtestadosDrive" onclick="gerarAtestados('drive')">☁ Salvar Atestados na Pasta Escolhida</button>
     </div>
     <div id="statusExport" class="status-msg"></div>
   </section>
@@ -336,18 +408,39 @@
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
 let registros = [];
+let driveBuffers = { pdfs: [], docx: null, xlsx: null };
+let listaPastasCache = [];
+
 const $ = id => document.getElementById(id);
 const esperar = ms => new Promise(r => setTimeout(r, ms));
 
+function base64ParaArrayBuffer(base64) {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+
+function arrayBufferParaBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let bin = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(bin);
+}
+
 window.addEventListener('DOMContentLoaded', () => {
-  const prov = localStorage.getItem('mon_provedor');
-  if (prov) $('provedorApi').value = prov;
-  const key = localStorage.getItem('mon_apiKey');
-  if (key) $('apiKey').value = key;
-  const model = localStorage.getItem('mon_apiModel');
-  if (model) $('apiModel').value = model;
-  if (!$('apiKey').value) $('painelConfig').open = true;
+  if (localStorage.getItem('mon_provedor')) $('provedorApi').value = localStorage.getItem('mon_provedor');
+  if (localStorage.getItem('mon_apiKey')) $('apiKey').value = localStorage.getItem('mon_apiKey');
+  if (localStorage.getItem('mon_apiModel')) $('apiModel').value = localStorage.getItem('mon_apiModel');
+  if (localStorage.getItem('mon_driveUrl')) $('driveWebhookUrl').value = localStorage.getItem('mon_driveUrl');
+
+  if (!$('apiKey').value || !$('driveWebhookUrl').value) $('painelConfig').open = true;
+  if ($('driveWebhookUrl').value) carregarPastasDrive(true);
 
   const zona = $('zonaPdf');
   zona.addEventListener('dragover', e => { e.preventDefault(); zona.classList.add('dragover'); });
@@ -357,29 +450,33 @@ window.addEventListener('DOMContentLoaded', () => {
     zona.classList.remove('dragover');
     if (e.dataTransfer.files.length) {
       $('inputPdfs').files = e.dataTransfer.files;
+      driveBuffers.pdfs = [];
       atualizarLabelPdf();
     }
   });
 });
 
 function atualizarLabelPdf() {
+  driveBuffers.pdfs = [];
   const f = $('inputPdfs').files;
   const l = $('labelArquivosPdf');
   l.textContent = f.length === 1
-    ? `Arquivo selecionado: ${f[0].name}`
+    ? `Arquivo local: ${f[0].name}`
     : f.length > 1
-      ? `${f.length} arquivos PDF selecionados`
-      : 'Clique aqui ou arraste os arquivos PDF das monitorias';
+      ? `${f.length} arquivos PDF locais selecionados`
+      : 'Clique aqui, arraste PDFs locais ou puxe da pasta selecionada acima';
 }
 
-function atualizarLabelDocx() {
+function limparDriveDocx() {
+  driveBuffers.docx = null;
   const f = $('inputDocx').files;
-  if (f.length) $('labelDocx').textContent = `Modelo Word: ${f[0].name}`;
+  if (f.length) $('labelDocx').textContent = `Modelo Word local: ${f[0].name}`;
 }
 
-function atualizarLabelXlsx() {
+function limparDriveXlsx() {
+  driveBuffers.xlsx = null;
   const f = $('inputXlsxRevisado').files;
-  if (f.length) $('labelXlsx').textContent = `Planilha importada: ${f[0].name}`;
+  if (f.length) $('labelXlsx').textContent = `Planilha local: ${f[0].name}`;
 }
 
 function alternarProvedor() {
@@ -394,8 +491,189 @@ function salvarConfig() {
   localStorage.setItem('mon_provedor', $('provedorApi').value);
   localStorage.setItem('mon_apiKey', $('apiKey').value.trim());
   localStorage.setItem('mon_apiModel', $('apiModel').value.trim());
+  localStorage.setItem('mon_driveUrl', $('driveWebhookUrl').value.trim());
+  if ($('selectPastaOrigem').value) localStorage.setItem('mon_pastaOrigem', $('selectPastaOrigem').value);
+  if ($('selectPastaDestino').value) localStorage.setItem('mon_pastaDestino', $('selectPastaDestino').value);
 }
 
+function sincronizarDestinoSelects(novoId) {
+  $('selectPastaDestino').value = novoId;
+  $('selectPastaDestinoFinal').value = novoId;
+  salvarConfig();
+}
+
+// =========================================================================
+// GERENCIADOR DE PASTAS DO GOOGLE DRIVE (LISTAR, CRIAR E PUXAR)
+// =========================================================================
+function popularSelectsPastas(pastas) {
+  listaPastasCache = pastas;
+  const selOrigem = $('selectPastaOrigem');
+  const selDestino1 = $('selectPastaDestino');
+  const selDestino2 = $('selectPastaDestinoFinal');
+
+  const salvoOrigem = localStorage.getItem('mon_pastaOrigem') || '';
+  const salvoDestino = localStorage.getItem('mon_pastaDestino') || '';
+
+  [selOrigem, selDestino1, selDestino2].forEach(sel => {
+    sel.innerHTML = '';
+    for (const p of pastas) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `📁 ${p.nome}`;
+      sel.appendChild(opt);
+    }
+  });
+
+  if (salvoOrigem && pastas.some(p => p.id === salvoOrigem)) selOrigem.value = salvoOrigem;
+  if (salvoDestino && pastas.some(p => p.id === salvoDestino)) {
+    selDestino1.value = salvoDestino;
+    selDestino2.value = salvoDestino;
+  }
+}
+
+async function carregarPastasDrive(silencioso = false) {
+  salvarConfig();
+  const url = $('driveWebhookUrl').value.trim();
+  const status = $('statusDriveConfig');
+  const btn = $('btnCarregarPastas');
+
+  if (!url) {
+    if (!silencioso) alert('Cole a URL do App da Web (Google Apps Script) primeiro.');
+    return;
+  }
+
+  btn.disabled = true;
+  if (!silencioso) {
+    status.className = 'status-msg';
+    status.textContent = 'Buscando suas pastas do Google Drive...';
+  }
+
+  try {
+    const resp = await fetch(`${url}?acao=listar_pastas`);
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.erro || 'Erro ao listar pastas.');
+
+    popularSelectsPastas(data.pastas || []);
+    if (!silencioso) {
+      status.className = 'status-msg ok';
+      status.textContent = `${data.pastas.length} pasta(s) carregada(s) do seu Google Drive.`;
+    }
+  } catch (e) {
+    if (!silencioso) {
+      status.className = 'status-msg erro';
+      status.textContent = 'Erro ao carregar pastas: ' + e.message;
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function criarNovaPastaDrive() {
+  const url = $('driveWebhookUrl').value.trim();
+  if (!url) {
+    $('painelConfig').open = true;
+    return alert('Configure a URL do App da Web (Google Apps Script) na Etapa 1 primeiro.');
+  }
+
+  const parentId = $('selectPastaDestinoFinal').value || $('selectPastaDestino').value;
+  const pastaPaiObj = listaPastasCache.find(p => p.id === parentId);
+  const nomePai = pastaPaiObj ? pastaPaiObj.nome : 'Meu Drive (Raiz)';
+
+  const nomeNovaPasta = prompt(`Criar nova pasta dentro de "${nomePai}".\nDigite o nome da nova pasta:`);
+  if (!nomeNovaPasta || !nomeNovaPasta.trim()) return;
+
+  const statusExp = $('statusExport');
+  const statusCfg = $('statusDriveConfig');
+  statusExp.className = 'status-msg';
+  statusExp.textContent = `Criando pasta "${nomeNovaPasta.trim()}" no Google Drive...`;
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({
+        acao: 'criar_pasta',
+        parentId: parentId,
+        nomePasta: nomeNovaPasta.trim()
+      })
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.erro || 'Não foi possível criar a pasta.');
+
+    // Adiciona a nova pasta na lista e já a deixa selecionada como destino
+    const nova = { id: data.pasta.id, nome: `${data.pasta.nome} (dentro de ${nomePai})` };
+    listaPastasCache.splice(1, 0, nova);
+    popularSelectsPastas(listaPastasCache);
+    sincronizarDestinoSelects(nova.id);
+
+    statusExp.className = 'status-msg ok';
+    statusExp.textContent = `Pasta "${data.pasta.nome}" criada e selecionada como destino!`;
+    statusCfg.className = 'status-msg ok';
+    statusCfg.textContent = `Pasta "${data.pasta.nome}" criada com sucesso.`;
+  } catch (e) {
+    statusExp.className = 'status-msg erro';
+    statusExp.textContent = 'Erro ao criar pasta: ' + e.message;
+  }
+}
+
+async function sincronizarComDrive() {
+  salvarConfig();
+  const url = $('driveWebhookUrl').value.trim();
+  const folderId = $('selectPastaOrigem').value;
+  const status = $('statusLeitura');
+  const btn = $('btnPuxarDrive');
+
+  if (!url) {
+    $('painelConfig').open = true;
+    return alert('Cole a URL do App da Web (Google Apps Script) na Etapa 1 primeiro.');
+  }
+  if (!folderId) {
+    $('painelConfig').open = true;
+    return alert('Selecione uma Pasta de Origem na Etapa 1.');
+  }
+
+  status.className = 'status-msg';
+  status.textContent = 'Puxando arquivos da pasta selecionada no Google Drive...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch(`${url}?acao=ler_arquivos&folderId=${encodeURIComponent(folderId)}`);
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.erro || 'Falha ao ler pasta do Drive.');
+
+    driveBuffers = { pdfs: [], docx: null, xlsx: null };
+
+    for (const arq of (data.arquivos || [])) {
+      const buffer = base64ParaArrayBuffer(arq.base64);
+      if (arq.tipo === 'pdf') {
+        driveBuffers.pdfs.push({ nome: arq.nome, buffer });
+      } else if (arq.tipo === 'docx' && !driveBuffers.docx) {
+        driveBuffers.docx = { nome: arq.nome, buffer };
+        $('labelDocx').textContent = `☁ Drive: ${arq.nome}`;
+      } else if (arq.tipo === 'xlsx' && !driveBuffers.xlsx) {
+        driveBuffers.xlsx = { nome: arq.nome, buffer };
+        $('labelXlsx').textContent = `☁ Drive: ${arq.nome}`;
+      }
+    }
+
+    if (driveBuffers.pdfs.length) {
+      $('labelArquivosPdf').textContent = `☁ ${driveBuffers.pdfs.length} PDF(s) carregado(s) do Google Drive`;
+    }
+
+    status.className = 'status-msg ok';
+    status.textContent = `Drive sincronizado: ${driveBuffers.pdfs.length} PDF(s)` +
+      (driveBuffers.docx ? `, modelo "${driveBuffers.docx.nome}"` : '') +
+      (driveBuffers.xlsx ? `, planilha "${driveBuffers.xlsx.nome}"` : '') + '.';
+  } catch (e) {
+    status.className = 'status-msg erro';
+    status.textContent = 'Erro ao acessar Google Drive: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// =========================================================================
+// NORMALIZAÇÃO E LEITURA DE PDFs
+// =========================================================================
 function normalizarHorario(valor) {
   if (valor == null) return '';
   let s = String(valor).trim().toLowerCase().replace(/^:+|:+$/g, '');
@@ -510,7 +788,7 @@ async function processarArquivos() {
   const provedor = $('provedorApi').value;
   const key = $('apiKey').value.trim();
   const model = $('apiModel').value.trim();
-  const files = $('inputPdfs').files;
+  const localFiles = $('inputPdfs').files;
   const status = $('statusLeitura');
   const btn = $('btnProcessar');
 
@@ -518,7 +796,15 @@ async function processarArquivos() {
     $('painelConfig').open = true;
     return alert('Informe sua chave de API antes de processar.');
   }
-  if (!files.length) return alert('Selecione ao menos um arquivo PDF.');
+
+  const fontesPdf = [];
+  if (driveBuffers.pdfs.length) {
+    for (const item of driveBuffers.pdfs) fontesPdf.push({ nome: item.nome, buffer: item.buffer });
+  } else {
+    for (const f of localFiles) fontesPdf.push({ nome: f.name, buffer: await f.arrayBuffer() });
+  }
+
+  if (!fontesPdf.length) return alert('Selecione PDFs locais ou clique em "Puxar Arquivos da Pasta Selecionada".');
 
   status.className = 'status-msg';
   btn.disabled = true;
@@ -528,12 +814,11 @@ async function processarArquivos() {
 
   try {
     let novos = 0;
-    for (let f = 0; f < files.length; f++) {
-      const buffer = await files[f].arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+    for (let f = 0; f < fontesPdf.length; f++) {
+      const pdf = await pdfjsLib.getDocument({ data: fontesPdf[f].buffer.slice(0) }).promise;
       try {
         for (let p = 1; p <= pdf.numPages; p++) {
-          status.textContent = `Lendo arquivo ${f + 1} de ${files.length} (página ${p}/${pdf.numPages})...`;
+          status.textContent = `Lendo "${fontesPdf[f].nome}" (${f + 1}/${fontesPdf.length}) — página ${p}/${pdf.numPages}...`;
           const page = await pdf.getPage(p);
           const dataUrl = await paginaParaBase64Contrastada(page);
           const conteudo = await consultarVisao(provedor, key, model, prompt, dataUrl);
@@ -578,6 +863,9 @@ async function processarArquivos() {
   }
 }
 
+// =========================================================================
+// TABELA DE CONFERÊNCIA
+// =========================================================================
 function ordenarPorMonitor() {
   registros.sort((a, b) => a.nome_monitor.localeCompare(b.nome_monitor, 'pt-BR'));
   renderizarTabela();
@@ -681,6 +969,9 @@ function renderizarTabela() {
   atualizarEstatisticas();
 }
 
+// =========================================================================
+// PLANILHA EXCEL (.XLSX)
+// =========================================================================
 function agruparAprovados() {
   const aprovados = registros
     .filter(r => r.aprovado && r.nome_monitor.trim())
@@ -717,9 +1008,9 @@ function agruparAprovados() {
   };
 }
 
-function baixarExcel() {
+function construirWorkbookExcel() {
   const { aprovados, consolidados } = agruparAprovados();
-  if (!aprovados.length) return alert('Nenhum registro aprovado para exportar.');
+  if (!aprovados.length) return null;
 
   const wb = XLSX.utils.book_new();
   const dadosDet = aprovados.map(r => ({
@@ -774,11 +1065,55 @@ function baixarExcel() {
 
   XLSX.utils.book_append_sheet(wb, wsDet, 'Registros_Detalhados');
   XLSX.utils.book_append_sheet(wb, wsSum, 'Somatoria_Por_Monitor');
+  return wb;
+}
+
+function baixarExcel() {
+  const wb = construirWorkbookExcel();
+  if (!wb) return alert('Nenhum registro aprovado para exportar.');
   XLSX.writeFile(wb, 'controle_monitores.xlsx');
 }
 
-async function lerConsolidadosDaPlanilha(file) {
-  const buffer = await file.arrayBuffer();
+async function salvarPlanilhaNoDrive() {
+  const url = $('driveWebhookUrl').value.trim();
+  const folderId = $('selectPastaDestinoFinal').value || $('selectPastaDestino').value;
+  if (!url) return alert('Configure a URL do Google Apps Script na Etapa 1.');
+  if (!folderId) return alert('Selecione uma Pasta de Destino.');
+
+  const wb = construirWorkbookExcel();
+  if (!wb) return alert('Nenhum registro aprovado para salvar.');
+
+  const status = $('statusExport');
+  status.className = 'status-msg';
+  status.textContent = 'Enviando planilha controle_monitores.xlsx para a pasta escolhida...';
+
+  const xlsxBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const resp = await fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({
+      acao: 'salvar_arquivos',
+      folderId: folderId,
+      arquivos: [{
+        nome: 'controle_monitores.xlsx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        base64: arrayBufferParaBase64(xlsxBuffer)
+      }]
+    })
+  });
+  const res = await resp.json();
+  if (res.ok) {
+    status.className = 'status-msg ok';
+    status.textContent = `Planilha controle_monitores.xlsx salva na pasta "${res.nomePasta}"!`;
+  } else {
+    status.className = 'status-msg erro';
+    status.textContent = 'Erro ao salvar planilha no Drive: ' + (res.erro || '');
+  }
+}
+
+// =========================================================================
+// PASSO FINAL: ATESTADOS CONSOLIDADOS (.DOCX)
+// =========================================================================
+async function lerConsolidadosDeBuffer(buffer) {
   const wb = XLSX.read(buffer, { type: 'array' });
   if (!wb.SheetNames.length) throw new Error('A planilha não possui guias.');
 
@@ -792,7 +1127,6 @@ async function lerConsolidadosDaPlanilha(file) {
 
   const mapa = new Map();
   for (const rawRow of linhas) {
-    // Normaliza chaves das colunas (remove espaços e deixa em minúsculas)
     const row = {};
     for (const [k, v] of Object.entries(rawRow)) {
       row[k.trim().toLocaleLowerCase('pt-BR')] = v;
@@ -807,11 +1141,7 @@ async function lerConsolidadosDaPlanilha(file) {
 
     const chave = nome.toLocaleUpperCase('pt-BR');
     if (!mapa.has(chave)) {
-      mapa.set(chave, {
-        nome_monitor: nome,
-        turmas: new Set(),
-        total_horas: 0
-      });
+      mapa.set(chave, { nome_monitor: nome, turmas: new Set(), total_horas: 0 });
     }
     const c = mapa.get(chave);
     if (turmas) turmas.split(',').forEach(v => v.trim() && c.turmas.add(v.trim()));
@@ -841,13 +1171,11 @@ function montarTextoAtestado(mon, dataEmissao) {
 }
 
 function limparTagsQuebradasDocx(pzip) {
-  // Junta tags {{ ... }} que o Word/Google Docs tenha dividido em múltiplos elementos <w:t>
   const xmlFiles = Object.keys(pzip.files).filter(f => f.startsWith('word/') && f.endsWith('.xml'));
   for (const fileName of xmlFiles) {
     let xml = pzip.file(fileName)?.asText();
     if (!xml || !xml.includes('{')) continue;
 
-    // Remove tags XML internas situadas entre {{ e }}
     xml = xml.replace(/\{\{([\s\S]*?)\}\}/g, (match, conteudo) => {
       const limpo = conteudo.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
       return `{{${limpo}}}`;
@@ -856,58 +1184,61 @@ function limparTagsQuebradasDocx(pzip) {
   }
 }
 
-async function gerarAtestadosZip() {
+async function gerarAtestados(destino) {
   const docxInput = $('inputDocx');
   const xlsxInput = $('inputXlsxRevisado');
   const status = $('statusExport');
-  const btn = $('btnGerarAtestados');
+  const btnZip = $('btnGerarAtestados');
+  const btnDrive = $('btnSalvarAtestadosDrive');
+  const folderId = $('selectPastaDestinoFinal').value || $('selectPastaDestino').value;
 
   status.className = 'status-msg';
-  if (!docxInput.files.length) {
-    return alert('Selecione o modelo Word (.docx) no item 1 da Etapa 4.');
+
+  let templateBuffer = null;
+  if (docxInput.files.length) {
+    templateBuffer = await docxInput.files[0].arrayBuffer();
+  } else if (driveBuffers.docx) {
+    templateBuffer = driveBuffers.docx.buffer;
+  } else {
+    return alert('Selecione o modelo Word (.docx) localmente ou puxe da pasta do Google Drive.');
   }
 
-  btn.disabled = true;
+  if (destino === 'drive') {
+    if (!$('driveWebhookUrl').value.trim()) {
+      $('painelConfig').open = true;
+      return alert('Cole a URL do App da Web (Google Apps Script) na Etapa 1 para salvar no Drive.');
+    }
+    if (!folderId) {
+      return alert('Selecione ou crie uma pasta de destino antes de salvar no Drive.');
+    }
+  }
+
+  btnZip.disabled = true;
+  btnDrive.disabled = true;
+
   try {
-    let monitores = xlsxInput.files.length
-      ? await lerConsolidadosDaPlanilha(xlsxInput.files[0])
-      : agruparAprovados().consolidados;
+    let monitores = [];
+    if (xlsxInput.files.length) {
+      monitores = await lerConsolidadosDeBuffer(await xlsxInput.files[0].arrayBuffer());
+    } else if (driveBuffers.xlsx) {
+      monitores = await lerConsolidadosDeBuffer(driveBuffers.xlsx.buffer);
+    } else {
+      monitores = agruparAprovados().consolidados;
+    }
 
     monitores = monitores.filter(m => m.nome_monitor && m.nome_monitor.trim());
     if (!monitores.length) {
-      throw new Error('Nenhum monitor encontrado. Leia os PDFs na Etapa 2 ou importe uma planilha com a guia Somatoria_Por_Monitor.');
-    }
-
-    const template = await docxInput.files[0].arrayBuffer();
-    let testeZip;
-    try {
-      testeZip = new PizZip(template);
-    } catch {
-      throw new Error('O arquivo selecionado não é um documento .docx válido.');
-    }
-
-    const xmlFiles = Object.keys(testeZip.files).filter(f => f.startsWith('word/') && f.endsWith('.xml'));
-    const todoTextoXml = xmlFiles
-      .map(f => testeZip.file(f)?.asText() || '')
-      .join(' ')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&nbsp;/gi, ' ')
-      .trim();
-
-    if (!todoTextoXml) {
-      throw new Error('O arquivo .docx enviado está completamente em branco.');
-    }
-    if (!todoTextoXml.includes('{{') || !todoTextoXml.includes('}}')) {
-      throw new Error('Nenhuma tag {{...}} foi encontrada no modelo Word. Adicione {{texto_atestado}} no documento.');
+      throw new Error('Nenhum monitor encontrado. Leia os PDFs ou importe a planilha Somatoria_Por_Monitor.');
     }
 
     const zip = new JSZip();
+    const loteDrive = [];
     const hoje = new Date().toLocaleDateString('pt-BR');
     let primeiro = '';
 
     for (let i = 0; i < monitores.length; i++) {
       status.textContent = `Gerando atestado ${i + 1} de ${monitores.length}...`;
-      const pzip = new PizZip(template);
+      const pzip = new PizZip(templateBuffer);
       limparTagsQuebradasDocx(pzip);
 
       const doc = new window.docxtemplater(pzip, {
@@ -931,32 +1262,61 @@ async function gerarAtestadosZip() {
       }
 
       if (!primeiro) primeiro = dados.texto_atestado;
-      const out = doc.getZip().generate({
-        type: 'blob',
-        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      });
-      const nome = monitores[i].nome_monitor.replace(/[\\/*?:"<>|]/g, '').trim().replace(/\s+/g, '_') || `Monitor_${i + 1}`;
-      zip.file(`Atestado_${nome}_${dados.total_horas.replace(',', '.')}h.docx`, out);
+      const nomeLimpo = monitores[i].nome_monitor.replace(/[\\/*?:"<>|]/g, '').trim().replace(/\s+/g, '_') || `Monitor_${i + 1}`;
+      const nomeArquivo = `Atestado_${nomeLimpo}_${dados.total_horas.replace(',', '.')}h.docx`;
+
+      if (destino === 'drive') {
+        const arrBuf = doc.getZip().generate({ type: 'arraybuffer' });
+        loteDrive.push({
+          nome: nomeArquivo,
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          base64: arrayBufferParaBase64(arrBuf)
+        });
+      } else {
+        const blob = doc.getZip().generate({
+          type: 'blob',
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        });
+        zip.file(nomeArquivo, blob);
+      }
       await esperar(10);
     }
 
-    status.textContent = 'Compactando arquivo ZIP...';
-    const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
-    const url = URL.createObjectURL(zipBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'atestados_consolidados_monitores.zip';
-    document.body.append(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 30000);
+    if (destino === 'drive') {
+      status.textContent = `Enviando ${loteDrive.length} atestado(s) para a pasta selecionada no Drive...`;
+      const resp = await fetch($('driveWebhookUrl').value.trim(), {
+        method: 'POST',
+        body: JSON.stringify({
+          acao: 'salvar_arquivos',
+          folderId: folderId,
+          arquivos: loteDrive
+        })
+      });
+      const res = await resp.json();
+      if (!res.ok) throw new Error(res.erro || 'Erro ao gravar arquivos no Drive.');
 
-    status.className = 'status-msg ok';
-    status.textContent = `Concluído: ${monitores.length} atestado(s) gerado(s). Exemplo: "${primeiro}"`;
+      status.className = 'status-msg ok';
+      status.textContent = `Sucesso: ${res.salvos} atestado(s) salvo(s) na pasta "${res.nomePasta}"! Exemplo: "${primeiro}"`;
+    } else {
+      status.textContent = 'Compactando arquivo ZIP...';
+      const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'atestados_consolidados_monitores.zip';
+      document.body.append(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 30000);
+
+      status.className = 'status-msg ok';
+      status.textContent = `Concluído: ${monitores.length} atestado(s) gerado(s). Exemplo: "${primeiro}"`;
+    }
   } catch (e) {
     status.className = 'status-msg erro';
     status.textContent = 'Erro: ' + e.message;
   } finally {
-    btn.disabled = false;
+    btnZip.disabled = false;
+    btnDrive.disabled = false;
   }
 }
 </script>
