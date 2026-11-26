@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gestão de Monitorias — Painel Web + Drive Explorer + Certificados PPTX</title>
+  <title>Gestão de Monitorias — Painel Web + Drive Explorer + Certificados ABNT</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.7/dist/pizzip.min.js"></script>
@@ -224,6 +224,7 @@
       margin-bottom: 1rem;
       font-size: .82rem;
       color: #334155;
+      line-height: 1.5;
     }
     .btn {
       display: inline-flex;
@@ -303,10 +304,10 @@
       <div class="brand-icon">M</div>
       <div>
         <h1>Gestão de Monitorias</h1>
-        <p>Extração de fichas manuscritas, cálculo exato em horas/minutos e certificados via template PPTX</p>
+        <p>Extração de fichas manuscritas, cálculo exato em horas/minutos e certificados ABNT (.pptx)</p>
       </div>
     </div>
-    <span class="pill">● Horas Exatas (HH:MM) + Template PPTX</span>
+    <span class="pill">● Horas Exatas (HH:MM) + Padrão ABNT</span>
   </div>
 </header>
 
@@ -435,13 +436,15 @@
     <div class="card-header">
       <div class="step-title">
         <span class="step-badge">4</span>
-        <span>Passo Final: Gerar 1 Certificado por Monitor (.pptx)</span>
+        <span>Passo Final: Gerar 1 Certificado por Monitor (.pptx Padrão ABNT)</span>
       </div>
     </div>
 
     <div class="tags-box">
-      <strong>Marcadores suportados no seu template PowerPoint (<code>.pptx</code>):</strong><br>
-      Insira no slide as variáveis <code>{{Nome_Monitor}}</code> (ou <code>{{nome_monitor}}</code>), <code>{{texto_atestado}}</code>, <code>{{turma_ou_disciplina}}</code>, <code>{{total_horas_extenso}}</code>, <code>{{total_horas}}</code> e <code>{{data_emissao}}</code>. O sistema preserva 100% do layout, fontes e assinaturas do seu arquivo <code>.pptx</code>.
+      <strong>Regras ABNT + Negrito Seletivo aplicadas automaticamente:</strong><br>
+      • Apenas o <strong>nome do(a) monitor(a)</strong> e a <strong>quantidade de horas cumpridas</strong> são formatados em <strong>negrito</strong>; o restante do texto do certificado permanece em fonte normal (sem negrito).<br>
+      • Marcadores suportados no seu template <code>.pptx</code>: <code>{{Nome_Monitor}}</code> (ou <code>{{nome_monitor}}</code>), <code>{{texto_atestado}}</code>, <code>{{turma_ou_disciplina}}</code>, <code>{{total_horas_extenso}}</code>, <code>{{total_horas}}</code> e <code>{{data_emissao}}</code>.<br>
+      • Formatação padrão ABNT: Fonte <strong>Arial 12</strong>, alinhamento justificado com recuo de <strong>1,25 cm</strong>, espaçamento entre linhas <strong>1,5</strong> e margens <strong>3 cm / 2 cm</strong>.
     </div>
 
     <div class="grid-2">
@@ -1236,7 +1239,7 @@ async function salvarPlanilhaNoDrive() {
 }
 
 // =========================================================================
-// PASSO FINAL: CERTIFICADOS CONSOLIDADOS EM POWERPOINT (.PPTX)
+// PASSO FINAL: CERTIFICADOS CONSOLIDADOS (.PPTX PADRÃO ABNT + NEGRITO SELETIVO)
 // =========================================================================
 async function lerConsolidadosDeBuffer(buffer) {
   const wb = XLSX.read(buffer, { type: 'array' });
@@ -1306,7 +1309,27 @@ function montarDadosCertificado(mon, dataEmissao) {
   };
 }
 
-// Preenche marcadores {{variavel}} (case-insensitive: {{Nome_Monitor}}, {{nome_monitor}}, {{texto_atestado}}, etc.)
+// Clona as propriedades visuais (<a:rPr>) de uma run XML forçando negrito (b="1") ou normal (b="0")
+function criarRunComNegrito(rPrOriginal, texto, negrito) {
+  const bVal = negrito ? '1' : '0';
+  let rPr = rPrOriginal || '<a:rPr lang="pt-BR"/>';
+
+  if (/<a:rPr\b[^>]*\/>/.test(rPr)) {
+    rPr = rPr.replace(/\bb="[^"]*"/g, '');
+    rPr = rPr.replace(/<a:rPr\b/, `<a:rPr b="${bVal}"`);
+  } else if (/<a:rPr\b[^>]*>/.test(rPr)) {
+    rPr = rPr.replace(/<a:rPr\b([^>]*)>/, (m, attrs) => {
+      const cleanAttrs = attrs.replace(/\bb="[^"]*"/g, '');
+      return `<a:rPr${cleanAttrs} b="${bVal}">`;
+    });
+  } else {
+    rPr = `<a:rPr lang="pt-BR" b="${bVal}"/>`;
+  }
+
+  return `<a:r>${rPr}<a:t xml:space="preserve">${escaparXml(texto)}</a:t></a:r>`;
+}
+
+// Preenche o slide .pptx mantendo o texto comum sem negrito e aplicando NEGRITO APENAS no nome do monitor e na carga horária
 function preencherTemplatePptx(templateBuffer, dados) {
   const pzip = new PizZip(templateBuffer);
   const slideFiles = Object.keys(pzip.files).filter(f => /^ppt\/slides\/slide\d+\.xml$/.test(f));
@@ -1315,32 +1338,70 @@ function preencherTemplatePptx(templateBuffer, dados) {
     throw new Error('O arquivo .pptx enviado não contém slides válidos.');
   }
 
-  const mapaSubstituicao = {
-    nome_monitor: dados.nome_monitor,
+  const mapaSimples = {
     turma_ou_disciplina: dados.turma_ou_disciplina,
-    total_horas: dados.total_horas,
-    total_horas_curto: dados.total_horas_curto,
-    total_horas_extenso: dados.total_horas_extenso,
-    data_emissao: dados.data_emissao,
-    texto_atestado: dados.texto_atestado
+    data_emissao: dados.data_emissao
   };
 
   for (const slidePath of slideFiles) {
     let xml = pzip.file(slidePath).asText();
 
-    // 1. Reagrupa tags {{...}} caso o PowerPoint tenha fragmentado em múltiplos <a:t>
+    // 1. Reagrupa tags {{...}} fragmentadas em múltiplas tags <a:t> pelo PowerPoint/Google Slides
     xml = xml.replace(/\{\{([\s\S]*?)\}\}/g, (match, interno) => {
       const chaveLimpa = interno.replace(/<[^>]+>/g, '').replace(/\s+/g, '').trim();
       return `{{${chaveLimpa}}}`;
     });
 
-    // 2. Substitui cada marcador ignorando maiúsculas/minúsculas (ex: {{Nome_Monitor}} ou {{nome_monitor}})
-    xml = xml.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (match, chave) => {
-      const chaveNormalizada = chave.toLowerCase();
-      if (Object.prototype.hasOwnProperty.call(mapaSubstituicao, chaveNormalizada)) {
-        return escaparXml(mapaSubstituicao[chaveNormalizada]);
+    // 2. Processa cada bloco <a:r>...</a:r> para controlar negrito seletivo
+    xml = xml.replace(/<a:r\b[^>]*>([\s\S]*?)<\/a:r>/g, (runXml, runInner) => {
+      const rPrMatch = runInner.match(/<a:rPr\b[\s\S]*?(?:\/>|<\/a:rPr>)/);
+      const rPr = rPrMatch ? rPrMatch[0] : '<a:rPr lang="pt-BR"/>';
+      const tMatch = runInner.match(/<a:t\b[^>]*>([\s\S]*?)<\/a:t>/);
+      if (!tMatch) return runXml;
+
+      const texto = tMatch[1];
+      if (!texto.includes('{{')) return runXml;
+
+      // Caso A: Bloco completo {{texto_atestado}} -> texto normal + NOME EM NEGRITO + texto normal + HORAS EM NEGRITO + texto normal
+      if (/\{\{texto_atestado\}\}/i.test(texto)) {
+        const partes = texto.split(/\{\{texto_atestado\}\}/i);
+        let saida = '';
+        if (partes[0]) saida += criarRunComNegrito(rPr, partes[0], false);
+        saida += criarRunComNegrito(rPr, 'Certificamos que ', false);
+        saida += criarRunComNegrito(rPr, dados.nome_monitor, true);
+        saida += criarRunComNegrito(rPr, ` atuou como monitor(a) de ${dados.turma_ou_disciplina}, cumprindo a carga horária total de `, false);
+        saida += criarRunComNegrito(rPr, dados.total_horas_extenso, true);
+        saida += criarRunComNegrito(rPr, ' de atividades de monitoria.', false);
+        if (partes[1]) saida += criarRunComNegrito(rPr, partes[1], false);
+        return saida;
       }
-      return match;
+
+      // Caso B: Variáveis individuais na run ({{Nome_Monitor}}, {{total_horas_extenso}}, {{total_horas}}, etc.)
+      const tokens = texto.split(/(\{\{[a-zA-Z0-9_]+\}\})/g);
+      let saida = '';
+      for (const tok of tokens) {
+        if (!tok) continue;
+        const mTag = tok.match(/^\{\{([a-zA-Z0-9_]+)\}\}$/);
+        if (mTag) {
+          const chave = mTag[1].toLowerCase();
+          if (chave === 'nome_monitor') {
+            saida += criarRunComNegrito(rPr, dados.nome_monitor, true);
+          } else if (chave === 'total_horas_extenso') {
+            saida += criarRunComNegrito(rPr, dados.total_horas_extenso, true);
+          } else if (chave === 'total_horas') {
+            saida += criarRunComNegrito(rPr, dados.total_horas, true);
+          } else if (chave === 'total_horas_curto') {
+            saida += criarRunComNegrito(rPr, dados.total_horas_curto, true);
+          } else if (Object.prototype.hasOwnProperty.call(mapaSimples, chave)) {
+            saida += criarRunComNegrito(rPr, mapaSimples[chave], false);
+          } else {
+            saida += criarRunComNegrito(rPr, tok, false);
+          }
+        } else {
+          saida += criarRunComNegrito(rPr, tok, false);
+        }
+      }
+      return saida;
     });
 
     pzip.file(slidePath, xml);
@@ -1349,7 +1410,8 @@ function preencherTemplatePptx(templateBuffer, dados) {
   return pzip;
 }
 
-function criarPptxGenericoPadrao(dados) {
+// Fallback padrão ABNT (Arial 12, margens 3cm/2cm, espaçamento 1,5, recuo 1,25cm, negrito apenas no nome e nas horas)
+function criarPptxAbntPadrao(dados) {
   const zip = new PizZip();
 
   zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -1367,11 +1429,12 @@ function criarPptxGenericoPadrao(dados) {
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
 </Relationships>`);
 
+  // Slide A4 Paisagem (29,7cm x 21,0cm = 10692000 x 7560000 EMUs) com margens ABNT (3cm = 1080000 EMUs, 2cm = 720000 EMUs)
   zip.file('ppt/presentation.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
   <p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>
   <p:sldIdLst><p:sldId id="256" r:id="rId2"/></p:sldIdLst>
-  <p:sldSz cx="12192000" cy="6858000"/>
+  <p:sldSz cx="10692000" cy="7560000"/>
   <p:notesSz cx="6858000" cy="9144000"/>
 </p:presentation>`);
 
@@ -1407,35 +1470,55 @@ function criarPptxGenericoPadrao(dados) {
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
 </Relationships>`);
 
+  // Fonte Arial 12pt (sz="1200"), espaçamento 1,5 (spcPct val="150000"), recuo primeira linha 1,25cm (indent="450000")
   zip.file('ppt/slides/slide1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
   <p:cSld>
     <p:spTree>
       <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
       <p:grpSpPr/>
+      <!-- Título: Certificado (Centralizado, Negrito, Arial 12) -->
       <p:sp>
         <p:nvSpPr><p:cNvPr id="2" name="Titulo"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>
-        <p:spPr><a:xfrm><a:off x="1219200" y="914400"/><a:ext cx="9753600" cy="914400"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
+        <p:spPr><a:xfrm><a:off x="1080000" y="1080000"/><a:ext cx="8892000" cy="720000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
         <p:txBody>
           <a:bodyPr wrap="square"/>
-          <a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="pt-BR" sz="2800" b="1"><a:latin typeface="Arial"/></a:rPr><a:t>CERTIFICADO</a:t></a:r></a:p>
+          <a:p><a:pPr algn="ctr"><a:lnSpc><a:spcPct val="150000"/></a:lnSpc></a:pPr><a:r><a:rPr lang="pt-BR" sz="1200" b="1"><a:latin typeface="Arial"/></a:rPr><a:t>Certificado</a:t></a:r></a:p>
         </p:txBody>
       </p:sp>
+      <!-- Corpo ABNT: Arial 12, Justificado, Recuo 1,25cm, Espaçamento 1,5, Negrito apenas no Nome e nas Horas -->
       <p:sp>
         <p:nvSpPr><p:cNvPr id="3" name="Corpo"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>
-        <p:spPr><a:xfrm><a:off x="1219200" y="2286000"/><a:ext cx="9753600" cy="2286000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
+        <p:spPr><a:xfrm><a:off x="1080000" y="2160000"/><a:ext cx="8892000" cy="2520000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
         <p:txBody>
           <a:bodyPr wrap="square"/>
-          <a:p><a:pPr algn="just"/><a:r><a:rPr lang="pt-BR" sz="1600"><a:latin typeface="Arial"/></a:rPr><a:t>${escaparXml(dados.texto_atestado)}</a:t></a:r></a:p>
+          <a:p>
+            <a:pPr algn="just" indent="450000"><a:lnSpc><a:spcPct val="150000"/></a:lnSpc></a:pPr>
+            <a:r><a:rPr lang="pt-BR" sz="1200" b="0"><a:latin typeface="Arial"/></a:rPr><a:t xml:space="preserve">Certificamos que </a:t></a:r>
+            <a:r><a:rPr lang="pt-BR" sz="1200" b="1"><a:latin typeface="Arial"/></a:rPr><a:t>${escaparXml(dados.nome_monitor)}</a:t></a:r>
+            <a:r><a:rPr lang="pt-BR" sz="1200" b="0"><a:latin typeface="Arial"/></a:rPr><a:t xml:space="preserve"> atuou como monitor(a) de ${escaparXml(dados.turma_ou_disciplina)}, cumprindo a carga horária total de </a:t></a:r>
+            <a:r><a:rPr lang="pt-BR" sz="1200" b="1"><a:latin typeface="Arial"/></a:rPr><a:t>${escaparXml(dados.total_horas_extenso)}</a:t></a:r>
+            <a:r><a:rPr lang="pt-BR" sz="1200" b="0"><a:latin typeface="Arial"/></a:rPr><a:t xml:space="preserve"> de atividades de monitoria.</a:t></a:r>
+          </a:p>
         </p:txBody>
       </p:sp>
+      <!-- Data de Emissão (Alinhada à direita, Arial 12, sem negrito) -->
       <p:sp>
-        <p:nvSpPr><p:cNvPr id="4" name="Assinatura"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>
-        <p:spPr><a:xfrm><a:off x="3657600" y="5029200"/><a:ext cx="4876800" cy="914400"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
+        <p:nvSpPr><p:cNvPr id="4" name="Data"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>
+        <p:spPr><a:xfrm><a:off x="1080000" y="4860000"/><a:ext cx="8892000" cy="540000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
         <p:txBody>
           <a:bodyPr wrap="square"/>
-          <a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="pt-BR" sz="1400"><a:latin typeface="Arial"/></a:rPr><a:t>____________________________________</a:t></a:r></a:p>
-          <a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="pt-BR" sz="1400"><a:latin typeface="Arial"/></a:rPr><a:t>Coordenador(a)</a:t></a:r></a:p>
+          <a:p><a:pPr algn="r"><a:lnSpc><a:spcPct val="150000"/></a:lnSpc></a:pPr><a:r><a:rPr lang="pt-BR" sz="1200" b="0"><a:latin typeface="Arial"/></a:rPr><a:t>Data de emissão: ${escaparXml(dados.data_emissao)}</a:t></a:r></a:p>
+        </p:txBody>
+      </p:sp>
+      <!-- Assinatura: Coordenador(a) (Centralizado, Arial 12, sem negrito) -->
+      <p:sp>
+        <p:nvSpPr><p:cNvPr id="5" name="Assinatura"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>
+        <p:spPr><a:xfrm><a:off x="2846000" y="5760000"/><a:ext cx="5000000" cy="900000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
+        <p:txBody>
+          <a:bodyPr wrap="square"/>
+          <a:p><a:pPr algn="ctr"><a:lnSpc><a:spcPct val="150000"/></a:lnSpc></a:pPr><a:r><a:rPr lang="pt-BR" sz="1200" b="0"><a:latin typeface="Arial"/></a:rPr><a:t>____________________________________</a:t></a:r></a:p>
+          <a:p><a:pPr algn="ctr"><a:lnSpc><a:spcPct val="150000"/></a:lnSpc></a:pPr><a:r><a:rPr lang="pt-BR" sz="1200" b="0"><a:latin typeface="Arial"/></a:rPr><a:t>Coordenador(a)</a:t></a:r></a:p>
         </p:txBody>
       </p:sp>
     </p:spTree>
@@ -1499,7 +1582,7 @@ async function gerarCertificadosPptx(destino) {
       const dados = montarDadosCertificado(monitores[i], hoje);
       const pptZip = templateBuffer
         ? preencherTemplatePptx(templateBuffer, dados)
-        : criarPptxGenericoPadrao(dados);
+        : criarPptxAbntPadrao(dados);
 
       const nomeLimpo = monitores[i].nome_monitor.replace(/[\\/*?:"<>|]/g, '').trim().replace(/\s+/g, '_') || `Monitor_${i + 1}`;
       const nomeArquivo = `Certificado_${nomeLimpo}_${dados.total_horas_curto}.pptx`;
@@ -1540,7 +1623,7 @@ async function gerarCertificadosPptx(destino) {
       const url = URL.createObjectURL(zipBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'certificados_monitores_pptx.zip';
+      a.download = 'certificados_monitores_abnt.zip';
       document.body.append(a);
       a.click();
       setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 30000);
