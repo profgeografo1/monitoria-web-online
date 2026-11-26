@@ -872,22 +872,18 @@ Responda EXCLUSIVAMENTE com JSON válido neste formato:
       }));
     }
 
-    function montarTextoAtestado(mon, dataEmissao) {
+  function montarTextoAtestado(mon, dataEmissao) {
       const horasFormatadas = mon.total_horas.toFixed(2).replace('.', ',');
       const unidadeHoras = mon.total_horas === 1 ? 'hora' : 'horas';
-      const unidadeSessoes = mon.qtd_sessoes === 1 ? 'sessão' : 'sessões';
       const turmasTexto = mon.turmas_disciplinas || 'disciplinas curriculares';
-      const assuntosTexto = mon.assuntos || 'atividades de apoio pedagógico e revisão de conteúdos';
 
       return {
         nome_monitor: mon.nome_monitor,
         turma_ou_disciplina: turmasTexto,
-        qtd_sessoes: mon.qtd_sessoes,
         total_horas: horasFormatadas,
         total_horas_extenso: `${horasFormatadas} ${unidadeHoras}`,
-        assuntos: assuntosTexto,
         data_emissao: dataEmissao,
-        texto_atestado: `Certificamos que ${mon.nome_monitor}, na condição de monitor(a) de ${turmasTexto}, cumpriu a carga horária total de ${horasFormatadas} ${unidadeHoras}, distribuídas em ${mon.qtd_sessoes} ${unidadeSessoes} de monitoria, abordando os seguintes conteúdos: ${assuntosTexto}.`
+        texto_atestado: `Certificamos que ${mon.nome_monitor}, na condição de monitor(a) de ${turmasTexto}, cumpriu a carga horária total de ${horasFormatadas} ${unidadeHoras} de atividades de monitoria.`
       };
     }
 
