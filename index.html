@@ -887,7 +887,7 @@ Responda EXCLUSIVAMENTE com JSON válido neste formato:
       };
     }
 
-    async function gerarAtestadosZip() {
+ async function gerarAtestadosZip() {
       const docxInput = document.getElementById('inputDocx');
       if (!docxInput.files.length) return alert('Selecione seu arquivo modelo Word (.docx) na Etapa 4.');
 
@@ -904,23 +904,54 @@ Responda EXCLUSIVAMENTE com JSON válido neste formato:
       }
 
       if (!listaMonitores.length) {
-        return alert('Nenhum monitor encontrado. Leia os PDFs na Etapa 2 ou importe uma planilha revisada na Etapa 4.');
+        status.className = 'status-msg erro';
+        status.textContent = 'Erro: Nenhum monitor encontrado na tabela ou na guia Somatoria_Por_Monitor.';
+        return alert('Nenhum monitor encontrado. Verifique se a planilha possui a guia Somatoria_Por_Monitor com a coluna nome_monitor.');
       }
 
-      status.textContent = `Gerando ${listaMonitores.length} atestado(s) consolidado(s)...`;
-
       const templateBuffer = await docxInput.files[0].arrayBuffer();
+
+      // Verifica se o .docx possui texto e tags {{ }} válidas no document.xml
+      const testeZip = new PizZip(templateBuffer);
+      const xmlDoc = testeZip.file('word/document.xml')?.asText() || '';
+      const textoLimpoXml = xmlDoc.replace(/<[^>]+>/g, '');
+
+      if (!textoLimpoXml.trim()) {
+        status.className = 'status-msg erro';
+        status.textContent = 'Erro: O arquivo .docx enviado está completamente vazio (sem texto no corpo do documento).';
+        return alert('O arquivo modelo .docx enviado está em branco. Escreva o texto do atestado com a tag {{texto_atestado}} dentro dele e salve.');
+      }
+
+      if (!textoLimpoXml.includes('{{') || !textoLimpoXml.includes('}}')) {
+        status.className = 'status-msg erro';
+        status.textContent = 'Erro: Nenhuma tag {{...}} encontrada no .docx. Adicione {{texto_atestado}} no documento.';
+        return alert('Nenhuma tag {{...}} foi encontrada no modelo Word. Insira {{texto_atestado}} (ou {{nome_monitor}} e {{total_horas_extenso}}) no documento.');
+      }
+
+      status.textContent = `Gerando ${listaMonitores.length} atestado(s)...`;
+
       const zip = new JSZip();
       const hoje = new Date().toLocaleDateString('pt-BR');
+      let primeiroExemplo = '';
 
       for (const mon of listaMonitores) {
         const pzip = new PizZip(templateBuffer);
-        const doc = new window.docxtemplater(pzip, { paragraphLoop: true, linebreaks: true });
+        const doc = new window.docxtemplater(pzip, {
+          paragraphLoop: true,
+          linebreaks: true,
+          nullGetter: () => ''
+        });
+
         const dadosTag = montarTextoAtestado(mon, hoje);
+        if (!primeiroExemplo) primeiroExemplo = dadosTag.texto_atestado;
 
         doc.render(dadosTag);
 
-        const out = doc.getZip().generate({ type: 'blob' });
+        const out = doc.getZip().generate({
+          type: 'blob',
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        });
+
         const nomeArquivo = mon.nome_monitor.replace(/[\\/*?:"<>|]/g, '').trim().replace(/\s+/g, '_');
         zip.file(`Atestado_${nomeArquivo}_${dadosTag.total_horas}h.docx`, out);
       }
@@ -932,8 +963,7 @@ Responda EXCLUSIVAMENTE com JSON válido neste formato:
       a.click();
 
       status.className = 'status-msg ok';
-      status.textContent = `Concluído: ${listaMonitores.length} atestado(s) individual(is) por total de horas gerado(s).`;
+      status.textContent = `Concluído: ${listaMonitores.length} arquivo(s) gerado(s). Exemplo do 1º texto: "${primeiroExemplo}"`;
     }
-  </script>
 </body>
 </html>
