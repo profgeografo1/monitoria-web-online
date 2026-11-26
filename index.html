@@ -298,7 +298,7 @@
         <p>Extração de fichas manuscritas, navegação interna no Google Drive e emissão de certificados ABNT</p>
       </div>
     </div>
-    <span class="pill">● Drive Explorer + ABNT Nativo</span>
+    <span class="pill">● Horas Exatas (HH:MM) + ABNT</span>
   </div>
 </header>
 
@@ -348,7 +348,6 @@
       <button class="btn btn-drive btn-sm" id="btnAbrirRaiz" onclick="navegarPastaDrive('')">☁ Abrir Meu Drive</button>
     </div>
 
-    <!-- Explorador de Pastas Interativo -->
     <div class="drive-explorer" id="boxExplorador">
       <div class="explorer-toolbar">
         <div class="explorer-path">
@@ -395,7 +394,7 @@
       </div>
       <div class="stats-bar">
         <div class="stat-box">Sessões Aprovadas: <strong id="statQtd">0</strong></div>
-        <div class="stat-box">Total de Horas: <strong id="statHoras">0.00</strong></div>
+        <div class="stat-box">Carga Horária Total: <strong id="statHoras">00h00min</strong></div>
         <button class="btn btn-outline" style="padding:.35rem .7rem;font-size:.8rem" onclick="ordenarPorMonitor()">Ordenar A–Z</button>
       </div>
     </div>
@@ -409,7 +408,7 @@
             <th style="width:110px">Data</th>
             <th style="width:82px">Início</th>
             <th style="width:82px">Fim</th>
-            <th style="width:85px">Horas</th>
+            <th style="width:92px">Duração</th>
             <th>Assuntos Ministrados</th>
             <th style="width:40px"></th>
           </tr>
@@ -432,7 +431,7 @@
       </div>
     </div>
     <p class="helper" style="margin:.25rem 0 1rem">
-      Gera automaticamente um arquivo Word (<code>.docx</code>) por monitor em fonte <strong>Arial 12</strong>, margens e espaçamento <strong>ABNT (3cm / 2cm, 1,5)</strong>, título <strong>Certificado</strong> centralizado em negrito e linha de assinatura exclusiva para <strong>Coordenador(a)</strong>.
+      Gera automaticamente um arquivo Word (<code>.docx</code>) por monitor em fonte <strong>Arial 12</strong>, margens e espaçamento <strong>ABNT (3cm / 2cm, 1,5)</strong>, título <strong>Certificado</strong> centralizado em negrito, carga horária exata em <strong>horas e minutos</strong> e linha de assinatura exclusiva para <strong>Coordenador(a)</strong>.
     </p>
     <div class="grid-2">
       <div class="dropzone" onclick="document.getElementById('inputDocx').click()">
@@ -475,6 +474,95 @@ let pastaAtualDrive = { id: '', nome: '', paiId: null };
 
 const $ = id => document.getElementById(id);
 const esperar = ms => new Promise(r => setTimeout(r, ms));
+
+// =========================================================================
+// MOTOR EXATO DE TEMPO (MINUTOS INTEIROS <-> HH:MM <-> TEXTO FORMAL)
+// =========================================================================
+function normalizarHorario(valor) {
+  if (valor == null) return '';
+  let s = String(valor).trim().toLowerCase().replace(/^:+|:+$/g, '');
+  let m = s.match(/^(\d{1,3})\s*h\s*(\d{0,2})/);
+  if (m) return `${m[1].padStart(2, '0')}:${(m[2] || '00').padStart(2, '0')}`;
+  m = s.match(/^(\d{1,3}):(\d{1,2})/);
+  if (m) {
+    const h = Number(m[1]), min = Number(m[2]);
+    if (h >= 0 && min >= 0 && min <= 59) {
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    }
+  }
+  return '';
+}
+
+// Converte duração (seja "01:30", "1h30", número decimal ou fração de dia do Excel) em MINUTOS INTEIROS exatos
+function parseDuracaoParaMinutos(valor) {
+  if (valor == null || valor === '') return 0;
+  if (typeof valor === 'number') {
+    if (!Number.isFinite(valor) || valor < 0) return 0;
+    // Se veio como fração de dia do Excel (ex: 0.456944 = 10h58min), multiplica por 1440 min
+    if (valor > 0 && valor < 1) return Math.round(valor * 1440);
+    // Se veio como horas decimais (ex: 1.5), converte para minutos inteiros
+    return Math.round(valor * 60);
+  }
+  const s = String(valor).trim().toLowerCase();
+  // Formato HH:MM (ex: "01:20" ou "10:58")
+  let m = s.match(/^(\d{1,3}):(\d{1,2})(?::\d{1,2})?$/);
+  if (m) return Number(m[1]) * 60 + Number(m[2]);
+
+  // Formato XhYmin (ex: "1h20min" ou "10h58")
+  m = s.match(/^(\d{1,3})\s*h\s*(\d{0,2})/);
+  if (m) return Number(m[1]) * 60 + Number(m[2] || 0);
+
+  // Número com vírgula ou ponto (ex: "1,5" -> 90 min)
+  const num = parseFloat(s.replace(',', '.').replace(/[^0-9.-]/g, ''));
+  if (Number.isFinite(num) && num >= 0 && num <= 999) {
+    return Math.round(num * 60);
+  }
+  return 0;
+}
+
+function calcularMinutosSessao(entrada, saida, informadas) {
+  const e = normalizarHorario(entrada);
+  const s = normalizarHorario(saida);
+  if (e && s) {
+    const [h1, m1] = e.split(':').map(Number);
+    const [h2, m2] = s.split(':').map(Number);
+    let inicio = h1 * 60 + m1;
+    let fim = h2 * 60 + m2;
+    if (fim < inicio) fim += 24 * 60;
+    const diffMin = fim - inicio;
+    if (diffMin > 0 && diffMin <= 16 * 60) return diffMin;
+  }
+  const fallback = parseDuracaoParaMinutos(informadas);
+  return fallback > 0 && fallback <= 24 * 60 ? fallback : 0;
+}
+
+// Formata minutos inteiros como "HH:MM" (ex: 658 -> "10:58")
+function formatarMinutosHHMM(totalMinutos) {
+  const min = Math.max(0, Math.round(Number(totalMinutos) || 0));
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+// Formata minutos inteiros como "10h58min"
+function formatarMinutosCurto(totalMinutos) {
+  const min = Math.max(0, Math.round(Number(totalMinutos) || 0));
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (m === 0) return `${h}h`;
+  return `${h}h${String(m).padStart(2, '0')}min`;
+}
+
+// Formata minutos inteiros por extenso formal para certificado (ex: "10 horas e 58 minutos")
+function formatarMinutosExtenso(totalMinutos) {
+  const min = Math.max(0, Math.round(Number(totalMinutos) || 0));
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  const txtH = `${h} ${h === 1 ? 'hora' : 'horas'}`;
+  if (m === 0) return txtH;
+  const txtM = `${m} ${m === 1 ? 'minuto' : 'minutos'}`;
+  return `${txtH} e ${txtM}`;
+}
 
 function base64ParaArrayBuffer(base64) {
   const bin = atob(base64);
@@ -722,37 +810,8 @@ async function puxarArquivosDaPastaAtual() {
 }
 
 // =========================================================================
-// NORMALIZAÇÃO E LEITURA DE PDFs
+// LEITURA DE PDFs
 // =========================================================================
-function normalizarHorario(valor) {
-  if (valor == null) return '';
-  let s = String(valor).trim().toLowerCase().replace(/^:+|:+$/g, '');
-  let m = s.match(/^(\d{1,2})\s*h\s*(\d{0,2})/);
-  if (m) return `${m[1].padStart(2, '0')}:${(m[2] || '00').padStart(2, '0')}`;
-  m = s.match(/^(\d{1,2}):(\d{1,2})/);
-  if (m) {
-    const h = Number(m[1]), min = Number(m[2]);
-    if (h >= 0 && h <= 23 && min >= 0 && min <= 59) {
-      return `${m[1].padStart(2, '0')}:${m[2].padStart(2, '0')}`;
-    }
-  }
-  return '';
-}
-
-function calcularHoras(entrada, saida, informadas) {
-  const e = normalizarHorario(entrada), s = normalizarHorario(saida);
-  if (e && s) {
-    const [h1, m1] = e.split(':').map(Number);
-    const [h2, m2] = s.split(':').map(Number);
-    let inicio = h1 * 60 + m1, fim = h2 * 60 + m2;
-    if (fim < inicio) fim += 24 * 60;
-    const diff = (fim - inicio) / 60;
-    if (diff > 0 && diff <= 16) return Math.round(diff * 100) / 100;
-  }
-  const n = parseFloat(String(informadas ?? 0).replace(',', '.'));
-  return Number.isFinite(n) && n >= 0 && n <= 24 ? Math.round(n * 100) / 100 : 0;
-}
-
 async function paginaParaBase64Contrastada(page) {
   const viewport = page.getViewport({ scale: 1.6 });
   const canvas = $('canvasOculto');
@@ -860,7 +919,7 @@ async function processarArquivos() {
   btn.disabled = true;
   btn.textContent = 'Processando fichas...';
 
-  const prompt = `Analise esta ficha de monitoria manuscrita. Extraia apenas o nome escrito no campo "Monitor(a)" e ignore alunos atendidos. Responda exclusivamente com JSON válido: {"registros":[{"nome_monitor":"","turma_ou_disciplina":"","data":"DD/MM/AAAA","hora_entrada":"HH:MM","hora_saida":"HH:MM","horas_informadas":0,"assuntos_ministrados":""}]}`;
+  const prompt = `Analise esta ficha de monitoria manuscrita. Extraia apenas o nome escrito no campo "Monitor(a)" e ignore alunos atendidos. Responda exclusivamente com JSON válido: {"registros":[{"nome_monitor":"","turma_ou_disciplina":"","data":"DD/MM/AAAA","hora_entrada":"HH:MM","hora_saida":"HH:MM","horas_informadas":"","assuntos_ministrados":""}]}`;
 
   try {
     let novos = 0;
@@ -888,7 +947,7 @@ async function processarArquivos() {
                 data: String(r.data || '').trim(),
                 hora_entrada: he,
                 hora_saida: hs,
-                horas: calcularHoras(he, hs, r.horas_informadas),
+                minutos: calcularMinutosSessao(he, hs, r.horas_informadas),
                 assuntos_ministrados: String(r.assuntos_ministrados || '').trim()
               });
               novos++;
@@ -914,7 +973,7 @@ async function processarArquivos() {
 }
 
 // =========================================================================
-// TABELA DE CONFERÊNCIA
+// TABELA DE CONFERÊNCIA (EXIBIÇÃO EXATA EM HH:MM)
 // =========================================================================
 function ordenarPorMonitor() {
   registros.sort((a, b) => a.nome_monitor.localeCompare(b.nome_monitor, 'pt-BR'));
@@ -929,7 +988,7 @@ function adicionarLinhaManual() {
     data: new Date().toLocaleDateString('pt-BR'),
     hora_entrada: '13:30',
     hora_saida: '15:30',
-    horas: 2,
+    minutos: 120,
     assuntos_ministrados: ''
   });
   renderizarTabela();
@@ -945,9 +1004,9 @@ function removerLinha(i) {
 
 function atualizarEstatisticas() {
   const aprovados = registros.filter(r => r.aprovado);
-  const horas = aprovados.reduce((a, r) => a + (Number(r.horas) || 0), 0);
+  const totalMin = aprovados.reduce((a, r) => a + (Number(r.minutos) || 0), 0);
   $('statQtd').textContent = aprovados.length;
-  $('statHoras').textContent = horas.toFixed(2);
+  $('statHoras').textContent = formatarMinutosCurto(totalMin);
 }
 
 function renderizarTabela() {
@@ -972,28 +1031,25 @@ function renderizarTabela() {
       ['text', 'data', ''],
       ['text', 'hora_entrada', ''],
       ['text', 'hora_saida', ''],
-      ['number', 'horas', ''],
+      ['duracao', 'minutos', 'HH:MM'],
       ['text', 'assuntos_ministrados', 'Conteúdos']
     ].forEach(([type, key, placeholder]) => {
       const td = document.createElement('td');
       const input = document.createElement('input');
-      input.type = type;
+      input.type = 'text';
       input.placeholder = placeholder;
-      if (type === 'number') {
-        input.step = '0.01';
-        input.min = '0';
-        input.max = '24';
-        input.value = Number(r.horas || 0).toFixed(2);
+      if (type === 'duracao') {
+        input.value = formatarMinutosHHMM(r.minutos);
+        input.title = 'Formato HH:MM (ex: 01:30)';
       } else {
         input.value = r[key] || '';
       }
       input.addEventListener('change', () => {
-        if (type === 'number') {
-          const n = parseFloat(input.value);
-          r.horas = Number.isFinite(n) && n >= 0 && n <= 24 ? Math.round(n * 100) / 100 : 0;
+        if (type === 'duracao') {
+          r.minutos = parseDuracaoParaMinutos(input.value);
         } else if (key === 'hora_entrada' || key === 'hora_saida') {
           r[key] = normalizarHorario(input.value) || '';
-          r.horas = calcularHoras(r.hora_entrada, r.hora_saida, r.horas);
+          r.minutos = calcularMinutosSessao(r.hora_entrada, r.hora_saida, r.minutos);
         } else {
           r[key] = input.value.trim();
         }
@@ -1020,7 +1076,7 @@ function renderizarTabela() {
 }
 
 // =========================================================================
-// PLANILHA EXCEL (.XLSX)
+// PLANILHA EXCEL (.XLSX) COM FORMATO NATIVO DE TEMPO [h]:mm
 // =========================================================================
 function agruparAprovados() {
   const aprovados = registros
@@ -1035,7 +1091,7 @@ function agruparAprovados() {
         nome_monitor: r.nome_monitor.trim(),
         turmas: new Set(),
         qtd_sessoes: 0,
-        total_horas: 0,
+        total_minutos: 0,
         assuntos: new Set()
       });
     }
@@ -1043,7 +1099,7 @@ function agruparAprovados() {
     if (r.turma_ou_disciplina) c.turmas.add(r.turma_ou_disciplina.trim());
     if (r.assuntos_ministrados) c.assuntos.add(r.assuntos_ministrados.trim());
     c.qtd_sessoes++;
-    c.total_horas = Math.round((c.total_horas + (Number(r.horas) || 0)) * 100) / 100;
+    c.total_minutos += (Number(r.minutos) || 0);
   }
 
   return {
@@ -1052,7 +1108,7 @@ function agruparAprovados() {
       nome_monitor: c.nome_monitor,
       turmas_disciplinas: [...c.turmas].join(', '),
       qtd_sessoes: c.qtd_sessoes,
-      total_horas: c.total_horas,
+      total_minutos: c.total_minutos,
       assuntos: [...c.assuntos].join(', ')
     }))
   };
@@ -1069,7 +1125,7 @@ function construirWorkbookExcel() {
     data: r.data,
     hora_entrada: normalizarHorario(r.hora_entrada),
     hora_saida: normalizarHorario(r.hora_saida),
-    horas: Number((Number(r.horas) || 0).toFixed(2)),
+    duracao: (Number(r.minutos) || 0) / 1440,
     assuntos_ministrados: r.assuntos_ministrados
   }));
 
@@ -1077,20 +1133,22 @@ function construirWorkbookExcel() {
   const ultimaDet = dadosDet.length + 1;
   for (let r = 2; r <= ultimaDet; r++) {
     const c = wsDet[`F${r}`];
-    if (c) { c.t = 'n'; c.v = Number(c.v) || 0; c.z = '0.00'; }
+    if (c) { c.t = 'n'; c.v = Number(c.v) || 0; c.z = '[h]:mm'; }
   }
+  const somaMinDet = aprovados.reduce((a, r) => a + (Number(r.minutos) || 0), 0);
   XLSX.utils.sheet_add_aoa(wsDet, [[
     'TOTAL GERAL', '', '', '', '',
-    { t: 'n', f: `SUM(F2:F${ultimaDet})`, v: dadosDet.reduce((a, r) => a + r.horas, 0), z: '0.00' },
+    { t: 'n', f: `SUM(F2:F${ultimaDet})`, v: somaMinDet / 1440, z: '[h]:mm' },
     ''
   ]], { origin: `A${ultimaDet + 1}` });
-  wsDet['!cols'] = [{ wch: 26 }, { wch: 20 }, { wch: 12 }, { wch: 13 }, { wch: 13 }, { wch: 10 }, { wch: 45 }];
+  wsDet['!cols'] = [{ wch: 26 }, { wch: 20 }, { wch: 12 }, { wch: 13 }, { wch: 13 }, { wch: 12 }, { wch: 45 }];
 
   const dadosSum = consolidados.map(c => ({
     nome_monitor: c.nome_monitor,
     turmas_disciplinas: c.turmas_disciplinas,
     qtd_sessoes: c.qtd_sessoes,
-    total_horas: c.total_horas,
+    total_horas: c.total_minutos / 1440,
+    carga_horaria_texto: formatarMinutosExtenso(c.total_minutos),
     assuntos: c.assuntos
   }));
 
@@ -1102,16 +1160,18 @@ function construirWorkbookExcel() {
       t: 'n',
       f: `SUMIF(Registros_Detalhados!$A$2:$A$${ultimaDet},A${r},Registros_Detalhados!$F$2:$F$${ultimaDet})`,
       v: Number(dadosSum[r - 2].total_horas) || 0,
-      z: '0.00'
+      z: '[h]:mm'
     };
   }
+  const somaMinSum = consolidados.reduce((a, c) => a + c.total_minutos, 0);
   XLSX.utils.sheet_add_aoa(wsSum, [[
     'TOTAL GERAL', '',
     { t: 'n', f: `SUM(C2:C${ultimaSum})`, v: dadosSum.reduce((a, c) => a + c.qtd_sessoes, 0), z: '0' },
-    { t: 'n', f: `SUM(D2:D${ultimaSum})`, v: dadosSum.reduce((a, c) => a + c.total_horas, 0), z: '0.00' },
+    { t: 'n', f: `SUM(D2:D${ultimaSum})`, v: somaMinSum / 1440, z: '[h]:mm' },
+    formatarMinutosExtenso(somaMinSum),
     ''
   ]], { origin: `A${ultimaSum + 1}` });
-  wsSum['!cols'] = [{ wch: 26 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 50 }];
+  wsSum['!cols'] = [{ wch: 26 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 24 }, { wch: 45 }];
 
   XLSX.utils.book_append_sheet(wb, wsDet, 'Registros_Detalhados');
   XLSX.utils.book_append_sheet(wb, wsSum, 'Somatoria_Por_Monitor');
@@ -1185,23 +1245,23 @@ async function lerConsolidadosDeBuffer(buffer) {
     const nome = String(row['nome_monitor'] || row['monitor(a)'] || row['monitor'] || '').trim();
     if (!nome || /^total\s+geral$/i.test(nome)) continue;
 
-    const horasRaw = String(row['total_horas'] ?? row['total de horas'] ?? row['horas'] ?? 0).replace(',', '.');
-    const horas = parseFloat(horasRaw.replace(/[^0-9.-]/g, '')) || 0;
+    const valBruto = row['total_horas'] ?? row['total de horas'] ?? row['duracao'] ?? row['horas'] ?? 0;
+    const min = parseDuracaoParaMinutos(valBruto);
     const turmas = String(row['turmas_disciplinas'] || row['turma_ou_disciplina'] || row['turma / disciplina'] || '').trim();
 
     const chave = nome.toLocaleUpperCase('pt-BR');
     if (!mapa.has(chave)) {
-      mapa.set(chave, { nome_monitor: nome, turmas: new Set(), total_horas: 0 });
+      mapa.set(chave, { nome_monitor: nome, turmas: new Set(), total_minutos: 0 });
     }
     const c = mapa.get(chave);
     if (turmas) turmas.split(',').forEach(v => v.trim() && c.turmas.add(v.trim()));
-    c.total_horas = Math.round((c.total_horas + horas) * 100) / 100;
+    c.total_minutos += min;
   }
 
   return [...mapa.values()].map(c => ({
     nome_monitor: c.nome_monitor,
     turmas_disciplinas: [...c.turmas].join(', '),
-    total_horas: c.total_horas
+    total_minutos: c.total_minutos
   }));
 }
 
@@ -1215,17 +1275,19 @@ function escaparXml(str) {
 }
 
 function montarTextoAtestado(mon, dataEmissao) {
-  const horas = mon.total_horas.toFixed(2).replace('.', ',');
-  const unidade = Math.abs(mon.total_horas - 1) < .001 ? 'hora' : 'horas';
+  const hhmm = formatarMinutosHHMM(mon.total_minutos);
+  const curto = formatarMinutosCurto(mon.total_minutos);
+  const extenso = formatarMinutosExtenso(mon.total_minutos);
   const turmas = mon.turmas_disciplinas || 'disciplinas curriculares';
 
   return {
     nome_monitor: mon.nome_monitor,
     turma_ou_disciplina: turmas,
-    total_horas: horas,
-    total_horas_extenso: `${horas} ${unidade}`,
+    total_horas: hhmm,
+    total_horas_curto: curto,
+    total_horas_extenso: extenso,
     data_emissao: dataEmissao,
-    texto_atestado: `Certificamos que ${mon.nome_monitor} atuou como monitor(a) de ${turmas}, cumprindo a carga horária total de ${horas} ${unidade} de atividades de monitoria.`
+    texto_atestado: `Certificamos que ${mon.nome_monitor} atuou como monitor(a) de ${turmas}, cumprindo a carga horária total de ${extenso} de atividades de monitoria.`
   };
 }
 
@@ -1258,12 +1320,6 @@ function criarDocxAbntPadrao(dados) {
   <Relationship Id="rId1" Target="word/document.xml" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"/>
 </Relationships>`;
 
-  // Padrão ABNT:
-  // Papel A4: w="11906" h="16838" (twips)
-  // Margens: Superior 3cm (1701), Esquerda 3cm (1701), Inferior 2cm (1134), Direita 2cm (1134)
-  // Fonte: Arial 12pt (w:sz w:val="24")
-  // Espaçamento entre linhas: 1,5 (w:line="360" w:lineRule="auto")
-  // Recuo primeira linha parágrafo: 1,25cm (w:firstLine="709")
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
@@ -1422,7 +1478,6 @@ async function gerarAtestados(destino) {
 
   status.className = 'status-msg';
 
-  // Modelo externo 100% opcional: se vazio, usa o gerador nativo ABNT (criarDocxAbntPadrao)
   let templateBuffer = null;
   if (docxInput && docxInput.files && docxInput.files.length) {
     templateBuffer = await docxInput.files[0].arrayBuffer();
@@ -1483,7 +1538,7 @@ async function gerarAtestados(destino) {
       }
 
       const nomeLimpo = monitores[i].nome_monitor.replace(/[\\/*?:"<>|]/g, '').trim().replace(/\s+/g, '_') || `Monitor_${i + 1}`;
-      const nomeArquivo = `Certificado_${nomeLimpo}_${dados.total_horas.replace(',', '.')}h.docx`;
+      const nomeArquivo = `Certificado_${nomeLimpo}_${dados.total_horas_curto}.docx`;
 
       if (destino === 'drive') {
         const arrBuf = docZip.generate({ type: 'arraybuffer' });
