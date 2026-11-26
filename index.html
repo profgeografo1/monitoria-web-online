@@ -1,90 +1,363 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-theme="light">
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gestão de Monitorias — Web Leve</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <title>Gestão de Monitorias — Painel Web</title>
+  <!-- Bibliotecas leves para processamento local no navegador -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.7/dist/pizzip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.47.1/build/docxtemplater.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <style>
-    body { max-width: 1120px; margin: 0 auto; padding: 1rem; font-size: 0.9rem; }
-    article { padding: 1rem 1.25rem; margin-bottom: 1rem; }
-    table input { margin-bottom: 0 !important; padding: 0.2rem 0.35rem !important; height: auto !important; font-size: 0.85rem !important; }
-    .grid-config { display: grid; grid-template-columns: 1fr 2fr 1.5fr; gap: 0.75rem; }
-    .acoes { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
-    .badge { background: #e2e8f0; color: #1e293b; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.78rem; }
-    @media (max-width: 768px) { .grid-config { grid-template-columns: 1fr; } }
+    :root {
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --surface-alt: #f8fafc;
+      --border: #e2e8f0;
+      --border-focus: #2563eb;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-soft: #eff6ff;
+      --success: #059669;
+      --success-hover: #047857;
+      --danger: #dc2626;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      font-size: 14px;
+      padding-bottom: 3rem;
+    }
+
+    /* Barra Superior */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow);
+    }
+
+    .topbar-inner {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .brand { display: flex; align-items: center; gap: 0.75rem; }
+    .brand-icon {
+      width: 38px; height: 38px;
+      background: var(--primary);
+      color: #fff;
+      border-radius: 10px;
+      display: grid; place-items: center;
+      font-weight: 700; font-size: 1.1rem;
+    }
+    .brand h1 { font-size: 1.15rem; font-weight: 700; color: var(--text); }
+    .brand p { font-size: 0.8rem; color: var(--text-muted); }
+
+    .pill {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      background: var(--primary-soft); color: var(--primary);
+      padding: 0.3rem 0.75rem; border-radius: 999px;
+      font-size: 0.78rem; font-weight: 600;
+    }
+
+    .container { max-width: 1180px; margin: 0 auto; padding: 0 1rem; }
+
+    /* Cartões */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 0.75rem; margin-bottom: 1rem;
+    }
+
+    .step-title { display: flex; align-items: center; gap: 0.65rem; font-size: 1rem; font-weight: 600; }
+    .step-badge {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--primary-soft); color: var(--primary);
+      display: inline-grid; place-items: center;
+      font-size: 0.82rem; font-weight: 700;
+    }
+
+    /* Formulários e Inputs */
+    .grid-3 { display: grid; grid-template-columns: 1.2fr 1.6fr 1.2fr; gap: 1rem; }
+    @media (max-width: 820px) { .grid-3 { grid-template-columns: 1fr; } }
+
+    .field label {
+      display: block; font-size: 0.8rem; font-weight: 600;
+      color: var(--text-muted); margin-bottom: 0.35rem;
+    }
+
+    input[type="text"], input[type="password"], input[type="number"], select {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.88rem;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    /* Zona de Upload Moderna */
+    .dropzone {
+      border: 2px dashed #cbd5e1;
+      border-radius: 10px;
+      background: var(--surface-alt);
+      padding: 1.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 1rem;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--primary);
+      background: var(--primary-soft);
+    }
+    .dropzone strong { color: var(--primary); display: block; margin-bottom: 0.2rem; }
+    .dropzone span { font-size: 0.8rem; color: var(--text-muted); }
+
+    /* Botões */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+      padding: 0.6rem 1.15rem;
+      border: none; border-radius: 8px;
+      font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; transition: background 0.15s, opacity 0.15s;
+    }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover:not(:disabled) { background: var(--success-hover); }
+    .btn-outline {
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover:not(:disabled) { background: var(--surface-alt); }
+    .btn-icon {
+      background: transparent; border: none; color: var(--text-muted);
+      cursor: pointer; padding: 0.25rem 0.45rem; border-radius: 6px; font-weight: 700;
+    }
+    .btn-icon:hover { background: #fee2e2; color: var(--danger); }
+
+    /* Barra de Métricas */
+    .stats-bar {
+      display: flex; gap: 1rem; flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+    .stat-box {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.9rem;
+      font-size: 0.82rem;
+    }
+    .stat-box strong { font-size: 1rem; color: var(--primary); margin-left: 0.35rem; }
+
+    /* Tabela Moderna */
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    table { width: 100%; border-collapse: collapse; background: var(--surface); }
+    th {
+      background: var(--surface-alt);
+      color: var(--text-muted);
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      text-align: left;
+      padding: 0.65rem 0.6rem;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 0.35rem 0.45rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8fafc; }
+    tr.inativo td { opacity: 0.45; }
+
+    td input[type="text"], td input[type="number"] {
+      border-color: transparent;
+      background: transparent;
+      padding: 0.35rem 0.45rem;
+    }
+    td input[type="text"]:hover, td input[type="number"]:hover { border-color: var(--border); background: #fff; }
+    td input[type="text"]:focus, td input[type="number"]:focus { border-color: var(--border-focus); background: #fff; }
+
+    .status-msg { margin-top: 0.65rem; font-size: 0.84rem; color: var(--text-muted); font-weight: 500; }
+    .status-msg.erro { color: var(--danger); }
+    .status-msg.ok { color: var(--success); }
+
+    .helper { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.5rem; display: block; }
+    code { background: #f1f5f9; padding: 0.1rem 0.35rem; border-radius: 4px; font-size: 0.82em; color: #334155; }
+    details summary { cursor: pointer; list-style: none; }
+    details summary::-webkit-details-marker { display: none; }
+    .actions-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; align-items: center; }
   </style>
 </head>
 <body>
-  <header>
-    <h3>Extração e Emissão de Monitorias <span class="badge">Versão Online • Low-Spec</span></h3>
-    <p>Leitura de fichas cursivas/lápis, conferência rápida e emissão de planilha e atestados em <code>.docx</code>.</p>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-icon">M</div>
+        <div>
+          <h1>Gestão de Monitorias</h1>
+          <p>Extração inteligente de fichas manuscritas e emissão de atestados</p>
+        </div>
+      </div>
+      <span class="pill">● Modo Leve • Chromebook Ready</span>
+    </div>
   </header>
 
-  <main>
-    <details id="painelConfig">
-      <summary><strong>1. Configuração do Motor de Visão (API Gratuita)</strong></summary>
-      <div class="grid-config" style="margin-top: 0.75rem;">
-        <label>Provedor
-          <select id="provedorApi" onchange="alternarProvedor()">
-            <option value="gemini" selected>Google AI Studio (Grátis • Chave AQ. / AIza)</option>
-            <option value="groq">Groq (Grátis • Chave gsk_)</option>
-            <option value="openrouter">OpenRouter (Grátis :free • Chave sk-or-)</option>
-          </select>
-        </label>
-        <label>Chave de API (salva só neste Chromebook)
-          <input type="password" id="apiKey" placeholder="AQ....">
-        </label>
-        <label>Modelo de Visão
-          <input type="text" id="apiModel" value="gemini-3.8-flash">
-        </label>
+  <main class="container">
+
+    <!-- Passo 1: Configuração -->
+    <section class="card">
+      <details id="painelConfig">
+        <summary class="card-header" style="margin-bottom:0;">
+          <div class="step-title">
+            <span class="step-badge">1</span>
+            <span>Configuração do Motor de Visão (API)</span>
+          </div>
+          <span class="helper" style="margin:0;">Clique para expandir / recolher ▾</span>
+        </summary>
+
+        <div class="grid-3" style="margin-top: 1rem;">
+          <div class="field">
+            <label for="provedorApi">Provedor de IA</label>
+            <select id="provedorApi" onchange="alternarProvedor()">
+              <option value="gemini" selected>Google AI Studio (Chave AQ. / AIza)</option>
+              <option value="groq">Groq (Chave gsk_)</option>
+              <option value="openrouter">OpenRouter (Chave sk-or-)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="apiKey">Chave de API (armazenada apenas neste navegador)</label>
+            <input type="password" id="apiKey" placeholder="Cole sua chave AQ....">
+          </div>
+          <div class="field">
+            <label for="apiModel">Modelo de Visão</label>
+            <input type="text" id="apiModel" value="gemini-3.8-flash">
+          </div>
+        </div>
+        <span class="helper">Modelos recomendados no Google AI Studio: <code>gemini-3.8-flash</code> ou <code>gemini-3.5-flash-lite</code>.</span>
+      </details>
+    </section>
+
+    <!-- Passo 2: Upload -->
+    <section class="card">
+      <div class="card-header">
+        <div class="step-title">
+          <span class="step-badge">2</span>
+          <span>Importar Fichas Digitalizadas (.pdf)</span>
+        </div>
       </div>
-      <small>Para Google AI Studio, use <code>gemini-3.8-flash</code> ou <code>gemini-3.5-flash-lite</code>. A chave fica salva apenas no navegador local.</small>
-    </details>
 
-    <article>
-      <label for="inputPdfs"><strong>2. Selecionar Fichas Digitalizadas (.pdf):</strong></label>
-      <input type="file" id="inputPdfs" accept=".pdf" multiple>
-      <button id="btnProcessar" onclick="processarArquivos()">Ler Fichas de Monitoria</button>
-      <small id="statusLeitura" style="display:block; margin-top:0.4rem;"></small>
-    </article>
+      <div class="dropzone" id="zonaPdf" onclick="document.getElementById('inputPdfs').click()">
+        <strong id="labelArquivosPdf">Clique aqui ou arraste os arquivos PDF das monitorias</strong>
+        <span>Suporta múltiplas páginas e escrita cursiva a caneta ou lápis</span>
+        <input type="file" id="inputPdfs" accept=".pdf" multiple style="display:none;" onchange="atualizarLabelPdf()">
+      </div>
 
-    <article id="secaoTabela" style="display:none;">
-      <strong>3. Conferência e Aprovação (Corrija nomes cursivos antes de emitir):</strong>
-      <div class="overflow-auto" style="margin-top:0.5rem;">
+      <div class="actions-row">
+        <button class="btn btn-primary" id="btnProcessar" onclick="processarArquivos()">
+          Ler Fichas de Monitoria
+        </button>
+        <button class="btn btn-outline" onclick="adicionarLinhaManual()">+ Adicionar Linha Manual</button>
+      </div>
+      <div id="statusLeitura" class="status-msg"></div>
+    </section>
+
+    <!-- Passo 3 e 4: Conferência e Exportação -->
+    <section class="card" id="secaoTabela" style="display:none;">
+      <div class="card-header">
+        <div class="step-title">
+          <span class="step-badge">3</span>
+          <span>Conferência e Aprovação dos Registros</span>
+        </div>
+        <div class="stats-bar" style="margin:0;">
+          <div class="stat-box">Aprovados: <strong id="statQtd">0</strong></div>
+          <div class="stat-box">Total de Horas: <strong id="statHoras">0</strong></div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
         <table id="tabelaDados">
           <thead>
             <tr>
-              <th>OK</th>
+              <th style="width:42px; text-align:center;">OK</th>
               <th>Monitor(a)</th>
-              <th>Turma/Disc.</th>
-              <th>Data</th>
-              <th>Início</th>
-              <th>Fim</th>
-              <th>Horas</th>
-              <th>Assuntos</th>
+              <th>Turma / Disciplina</th>
+              <th style="width:115px;">Data</th>
+              <th style="width:82px;">Início</th>
+              <th style="width:82px;">Fim</th>
+              <th style="width:85px;">Horas</th>
+              <th>Assuntos Ministrados</th>
+              <th style="width:40px;"></th>
             </tr>
           </thead>
           <tbody></tbody>
         </table>
       </div>
 
-      <hr>
-      <label for="inputDocx"><strong>4. Modelo Word Institucional (.docx) para os Atestados:</strong></label>
-      <input type="file" id="inputDocx" accept=".docx">
-      <small>Tags aceitas no Word: <code>{{ nome_monitor }}</code>, <code>{{ total_horas }}</code>, <code>{{ qtd_sessoes }}</code>, <code>{{ turma_ou_disciplina }}</code>, <code>{{ assuntos }}</code> e <code>{{ data_emissao }}</code>.</small>
+      <hr style="border:none; border-top:1px solid var(--border); margin: 1.5rem 0;">
 
-      <div class="acoes">
-        <button class="secondary" onclick="baixarExcel()">Baixar Planilha (.xlsx)</button>
-        <button onclick="gerarAtestadosZip()">Gerar Atestados Aprovados (.zip)</button>
+      <div class="card-header">
+        <div class="step-title">
+          <span class="step-badge">4</span>
+          <span>Emissão de Planilha e Atestados (.docx)</span>
+        </div>
       </div>
-      <small id="statusExport" style="display:block; margin-top:0.4rem;"></small>
-    </article>
+
+      <div class="dropzone" style="padding: 1rem;" onclick="document.getElementById('inputDocx').click()">
+        <strong id="labelDocx">Selecionar Modelo Word Institucional (.docx)</strong>
+        <span>Tags disponíveis: <code>{{ nome_monitor }}</code>, <code>{{ total_horas }}</code>, <code>{{ qtd_sessoes }}</code>, <code>{{ turma_ou_disciplina }}</code>, <code>{{ assuntos }}</code>, <code>{{ data_emissao }}</code></span>
+        <input type="file" id="inputDocx" accept=".docx" style="display:none;" onchange="atualizarLabelDocx()">
+      </div>
+
+      <div class="actions-row">
+        <button class="btn btn-outline" onclick="baixarExcel()">Baixar Planilha Consolidada (.xlsx)</button>
+        <button class="btn btn-success" onclick="gerarAtestadosZip()">Gerar Atestados Aprovados (.zip)</button>
+      </div>
+      <div id="statusExport" class="status-msg"></div>
+    </section>
+
   </main>
 
   <canvas id="canvasOculto" style="display:none;"></canvas>
@@ -99,7 +372,32 @@
       if (localStorage.getItem('mon_apiKey')) document.getElementById('apiKey').value = localStorage.getItem('mon_apiKey');
       if (localStorage.getItem('mon_apiModel')) document.getElementById('apiModel').value = localStorage.getItem('mon_apiModel');
       if (!document.getElementById('apiKey').value) document.getElementById('painelConfig').open = true;
+
+      // Suporte a arrastar e soltar PDFs
+      const zona = document.getElementById('zonaPdf');
+      zona.addEventListener('dragover', e => { e.preventDefault(); zona.classList.add('dragover'); });
+      zona.addEventListener('dragleave', () => zona.classList.remove('dragover'));
+      zona.addEventListener('drop', e => {
+        e.preventDefault();
+        zona.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+          document.getElementById('inputPdfs').files = e.dataTransfer.files;
+          atualizarLabelPdf();
+        }
+      });
     });
+
+    function atualizarLabelPdf() {
+      const files = document.getElementById('inputPdfs').files;
+      const lbl = document.getElementById('labelArquivosPdf');
+      if (files.length === 1) lbl.textContent = `Arquivo selecionado: ${files[0].name}`;
+      else if (files.length > 1) lbl.textContent = `${files.length} arquivos PDF selecionados`;
+    }
+
+    function atualizarLabelDocx() {
+      const files = document.getElementById('inputDocx').files;
+      if (files.length) document.getElementById('labelDocx').textContent = `Modelo carregado: ${files[0].name}`;
+    }
 
     function alternarProvedor() {
       const prov = document.getElementById('provedorApi').value;
@@ -151,7 +449,6 @@
     }
 
     async function consultarVisao(provedor, apiKey, apiModel, prompt, dataUrl) {
-      // Endpoint nativo do Google Gemini (suporta chaves AQ. e AIza via x-goog-api-key)
       if (provedor === 'gemini' || apiKey.startsWith('AQ.') || apiKey.startsWith('AIza')) {
         const base64Puro = dataUrl.split(',')[1];
         const urlGemini = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(apiModel)}:generateContent`;
@@ -173,7 +470,21 @@
         });
         if (!resp.ok) {
           const errTxt = await resp.text();
-          throw new Error(`Google AI Studio (${resp.status}): ${errTxt.slice(0, 200)}`); } const data = await resp.json(); return data.candidates?.[0]?.content?.parts?.[0]?.text \vert{}\vert{} ''; }  // Endpoint padrão OpenAI para Groq ou OpenRouter const endpoint = provedor === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.groq.com/openai/v1/chat/completions';  const resp = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`
+          throw new Error(`Google AI Studio (${resp.status}): ${errTxt.slice(0, 200)}`);
+        }
+        const data = await resp.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      }
+
+      const endpoint = provedor === 'openrouter'
+        ? 'https://openrouter.ai/api/v1/chat/completions'
+        : 'https://api.groq.com/openai/v1/chat/completions';
+
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
           model: apiModel,
@@ -189,7 +500,7 @@
       });
       if (!resp.ok) {
         const errTxt = await resp.text();
-        throw new Error(`API (${resp.status}):${errTxt.slice(0, 200)}`);
+        throw new Error(`API (${resp.status}): ${errTxt.slice(0, 200)}`);
       }
       const data = await resp.json();
       return data.choices?.[0]?.message?.content || '';
@@ -204,16 +515,201 @@
 
       if (!apiKey) {
         document.getElementById('painelConfig').open = true;
-        return alert('Informe sua chave de API na seção 1 antes de processar.');
+        return alert('Informe sua chave de API na etapa 1 antes de processar.');
       }
-      if (!files.length) return alert('Selecione ao menos um arquivo PDF.');
+      if (!files.length) return alert('Selecione ao menos um arquivo PDF na etapa 2.');
 
       const btn = document.getElementById('btnProcessar');
       const status = document.getElementById('statusLeitura');
-      btn.setAttribute('aria-busy', 'true');
+      status.className = 'status-msg';
       btn.disabled = true;
+      btn.textContent = 'Processando fichas...';
 
       const prompt = `Analise esta ficha de monitoria manuscrita (caneta ou lápis).
 Extraia APENAS o nome escrito na linha ou campo "Monitor(a)". Ignore alunos atendidos na lista abaixo.
 Responda EXCLUSIVAMENTE com JSON válido neste formato:
-{"registros":[{"nome_monitor":"","turma_ou_disciplina":"","data":"DD/MM/AAAA","hora_entrada":"HH:
+{"registros":[{"nome_monitor":"","turma_ou_disciplina":"","data":"DD/MM/AAAA","hora_entrada":"HH:MM","hora_saida":"HH:MM","horas_informadas":0,"assuntos_ministrados":""}]}`;
+
+      try {
+        let novos = 0;
+        for (let fIdx = 0; fIdx < files.length; fIdx++) {
+          const arrayBuffer = await files[fIdx].arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+          for (let p = 1; p <= pdf.numPages; p++) {
+            status.textContent = `Lendo arquivo ${fIdx + 1} de ${files.length} (página ${p}/${pdf.numPages})...`;
+            const page = await pdf.getPage(p);
+            const dataUrl = await paginaParaBase64Contrastada(page);
+
+            const conteudo = await consultarVisao(provedor, apiKey, apiModel, prompt, dataUrl);
+            const match = conteudo.match(/\{[\s\S]*\}/);
+            if (match) {
+              const parsed = JSON.parse(match[0]);
+              for (const r of (parsed.registros || [])) {
+                const nome = (r.nome_monitor || '').trim();
+                if (!nome) continue;
+                registros.push({
+                  aprovado: true,
+                  nome_monitor: nome,
+                  turma_ou_disciplina: r.turma_ou_disciplina || '',
+                  data: r.data || '',
+                  hora_entrada: r.hora_entrada || '',
+                  hora_saida: r.hora_saida || '',
+                  horas: calcularHoras(r.hora_entrada, r.hora_saida, r.horas_informadas),
+                  assuntos_ministrados: r.assuntos_ministrados || ''
+                });
+                novos++;
+              }
+            }
+          }
+        }
+        renderizarTabela();
+        document.getElementById('secaoTabela').style.display = 'block';
+        status.className = 'status-msg ok';
+        status.textContent = `Leitura concluída: ${novos} registro(s) extraído(s).`;
+      } catch (e) {
+        status.className = 'status-msg erro';
+        status.textContent = 'Erro: ' + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Ler Fichas de Monitoria';
+      }
+    }
+
+    function adicionarLinhaManual() {
+      registros.push({
+        aprovado: true,
+        nome_monitor: '',
+        turma_ou_disciplina: '',
+        data: new Date().toLocaleDateString('pt-BR'),
+        hora_entrada: '',
+        hora_saida: '',
+        horas: 1,
+        assuntos_ministrados: ''
+      });
+      renderizarTabela();
+      document.getElementById('secaoTabela').style.display = 'block';
+    }
+
+    function removerLinha(idx) {
+      registros.splice(idx, 1);
+      renderizarTabela();
+    }
+
+    function atualizarEstatisticas() {
+      const aprovados = registros.filter(r => r.aprovado);
+      const totalHoras = aprovados.reduce((acc, r) => acc + (Number(r.horas) || 0), 0);
+      document.getElementById('statQtd').textContent = aprovados.length;
+      document.getElementById('statHoras').textContent = Math.round(totalHoras * 100) / 100;
+    }
+
+    function renderizarTabela() {
+      const tbody = document.querySelector('#tabelaDados tbody');
+      tbody.innerHTML = '';
+      registros.forEach((r, i) => {
+        const tr = document.createElement('tr');
+        if (!r.aprovado) tr.classList.add('inativo');
+        tr.innerHTML = `
+          <td style="text-align:center;">
+            <input type="checkbox" ${r.aprovado ? 'checked' : ''} onchange="registros[${i}].aprovado=this.checked; renderizarTabela();">
+          </td>
+          <td><input type="text" placeholder="Nome do monitor" value="${r.nome_monitor.replace(/"/g, '&quot;')}" onchange="registros[${i}].nome_monitor=this.value"></td>
+          <td><input type="text" placeholder="Turma/Disc." value="${r.turma_ou_disciplina.replace(/"/g, '&quot;')}" onchange="registros[${i}].turma_ou_disciplina=this.value"></td>
+          <td><input type="text" value="${r.data}" onchange="registros[${i}].data=this.value"></td>
+          <td><input type="text" value="${r.hora_entrada}" onchange="registros[${i}].hora_entrada=this.value"></td>
+          <td><input type="text" value="${r.hora_saida}" onchange="registros[${i}].hora_saida=this.value"></td>
+          <td><input type="number" step="0.5" value="${r.horas}" onchange="registros[${i}].horas=parseFloat(this.value)||0; atualizarEstatisticas();"></td>
+          <td><input type="text" placeholder="Conteúdos" value="${r.assuntos_ministrados.replace(/"/g, '&quot;')}" onchange="registros[${i}].assuntos_ministrados=this.value"></td>
+          <td style="text-align:center;">
+            <button class="btn-icon" title="Excluir linha" onclick="removerLinha(${i})">✕</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      atualizarEstatisticas();
+    }
+
+    function agruparAprovados() {
+      const aprovados = registros.filter(r => r.aprovado && r.nome_monitor.trim());
+      const mapa = new Map();
+      for (const r of aprovados) {
+        const chave = r.nome_monitor.trim().toUpperCase();
+        if (!mapa.has(chave)) {
+          mapa.set(chave, {
+            nome_monitor: r.nome_monitor.trim(),
+            turmas: new Set(),
+            qtd_sessoes: 0,
+            total_horas: 0,
+            assuntos: new Set()
+          });
+        }
+        const item = mapa.get(chave);
+        if (r.turma_ou_disciplina) item.turmas.add(r.turma_ou_disciplina.trim());
+        if (r.assuntos_ministrados) item.assuntos.add(r.assuntos_ministrados.trim());
+        item.qtd_sessoes += 1;
+        item.total_horas = Math.round((item.total_horas + (Number(r.horas) || 0)) * 100) / 100;
+      }
+      return { aprovados, consolidados: Array.from(mapa.values()) };
+    }
+
+    function baixarExcel() {
+      const { aprovados, consolidados } = agruparAprovados();
+      if (!aprovados.length) return alert('Nenhum registro aprovado para exportar.');
+
+      const wb = XLSX.utils.book_new();
+      const wsDet = XLSX.utils.json_to_sheet(aprovados.map(({ aprovado, ...resto }) => resto));
+      const wsSum = XLSX.utils.json_to_sheet(consolidados.map(c => ({
+        nome_monitor: c.nome_monitor,
+        turmas_disciplinas: Array.from(c.turmas).join(', '),
+        qtd_sessoes: c.qtd_sessoes,
+        total_horas: c.total_horas,
+        assuntos: Array.from(c.assuntos).join(', ')
+      })));
+
+      XLSX.utils.book_append_sheet(wb, wsDet, 'Registros_Detalhados');
+      XLSX.utils.book_append_sheet(wb, wsSum, 'Somatoria_Por_Monitor');
+      XLSX.writeFile(wb, 'controle_monitores.xlsx');
+    }
+
+    async function gerarAtestadosZip() {
+      const docxInput = document.getElementById('inputDocx');
+      if (!docxInput.files.length) return alert('Selecione seu arquivo modelo (.docx) na etapa 4.');
+
+      const { consolidados } = agruparAprovados();
+      if (!consolidados.length) return alert('Nenhum registro aprovado para emitir atestado.');
+
+      const status = document.getElementById('statusExport');
+      status.className = 'status-msg';
+      status.textContent = 'Gerando documentos Word...';
+
+      const templateBuffer = await docxInput.files[0].arrayBuffer();
+      const zip = new JSZip();
+      const hoje = new Date().toLocaleDateString('pt-BR');
+
+      for (const mon of consolidados) {
+        const pzip = new PizZip(templateBuffer);
+        const doc = new window.docxtemplater(pzip, { paragraphLoop: true, linebreaks: true });
+        doc.render({
+          nome_monitor: mon.nome_monitor,
+          turma_ou_disciplina: Array.from(mon.turmas).join(', ') || 'não informada',
+          qtd_sessoes: mon.qtd_sessoes,
+          total_horas: String(mon.total_horas).replace('.', ','),
+          assuntos: Array.from(mon.assuntos).join(', ') || 'atividades de monitoria',
+          data_emissao: hoje
+        });
+        const out = doc.getZip().generate({ type: 'blob' });
+        const nomeArquivo = mon.nome_monitor.replace(/[\\/*?:"<>|]/g, '').trim().replace(/\s+/g, '_');
+        zip.file(`Atestado_${nomeArquivo}.docx`, out);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(zipBlob);
+      a.download = 'atestados_monitores.zip';
+      a.click();
+      status.className = 'status-msg ok';
+      status.textContent = `Download concluído: ${consolidados.length} atestado(s) gerado(s).`;
+    }
+  </script>
+</body>
+</html>
