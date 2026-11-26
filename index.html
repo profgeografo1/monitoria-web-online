@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Gestão de Monitorias — Web Leve</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-  <!-- Bibliotecas leves via CDN para PDF, Excel e DOCX direto no navegador -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.7/dist/pizzip.min.js"></script>
@@ -15,7 +14,7 @@
     body { max-width: 1120px; margin: 0 auto; padding: 1rem; font-size: 0.9rem; }
     article { padding: 1rem 1.25rem; margin-bottom: 1rem; }
     table input { margin-bottom: 0 !important; padding: 0.2rem 0.35rem !important; height: auto !important; font-size: 0.85rem !important; }
-    .grid-config { display: grid; grid-template-columns: 2fr 2fr 2fr; gap: 0.75rem; }
+    .grid-config { display: grid; grid-template-columns: 1fr 2fr 1.5fr; gap: 0.75rem; }
     .acoes { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
     .badge { background: #e2e8f0; color: #1e293b; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.78rem; }
     @media (max-width: 768px) { .grid-config { grid-template-columns: 1fr; } }
@@ -28,24 +27,26 @@
   </header>
 
   <main>
-    <!-- 1. Configuração da API (Salva apenas no navegador local) -->
     <details id="painelConfig">
-      <summary><strong>1. Configuração do Motor de Visão (API)</strong></summary>
+      <summary><strong>1. Configuração do Motor de Visão (API Gratuita)</strong></summary>
       <div class="grid-config" style="margin-top: 0.75rem;">
-        <label>Endpoint API (Padrão OpenAI)
-          <input type="text" id="apiUrl" value="https://api.groq.com/openai/v1/chat/completions">
+        <label>Provedor
+          <select id="provedorApi" onchange="alternarProvedor()">
+            <option value="gemini" selected>Google AI Studio (Grátis • Chave AQ. / AIza)</option>
+            <option value="groq">Groq (Grátis • Chave gsk_)</option>
+            <option value="openrouter">OpenRouter (Grátis :free • Chave sk-or-)</option>
+          </select>
         </label>
-        <label>Chave de API (salva só neste PC)
-          <input type="password" id="apiKey" placeholder="gsk_... ou sk-...">
+        <label>Chave de API (salva só neste Chromebook)
+          <input type="password" id="apiKey" placeholder="AQ....">
         </label>
         <label>Modelo de Visão
-          <input type="text" id="apiModel" value="meta-llama/llama-4-scout-17b-16e-instruct">
+          <input type="text" id="apiModel" value="gemini-3.8-flash">
         </label>
       </div>
-      <small>A chave fica armazenada apenas no <code>localStorage</code> do seu navegador e nunca é enviada a repositórios.</small>
+      <small>Para Google AI Studio, use <code>gemini-3.8-flash</code> ou <code>gemini-3.5-flash-lite</code>. A chave fica salva apenas no navegador local.</small>
     </details>
 
-    <!-- 2. Upload de PDFs -->
     <article>
       <label for="inputPdfs"><strong>2. Selecionar Fichas Digitalizadas (.pdf):</strong></label>
       <input type="file" id="inputPdfs" accept=".pdf" multiple>
@@ -53,7 +54,6 @@
       <small id="statusLeitura" style="display:block; margin-top:0.4rem;"></small>
     </article>
 
-    <!-- 3. Tabela de Conferência -->
     <article id="secaoTabela" style="display:none;">
       <strong>3. Conferência e Aprovação (Corrija nomes cursivos antes de emitir):</strong>
       <div class="overflow-auto" style="margin-top:0.5rem;">
@@ -77,7 +77,7 @@
       <hr>
       <label for="inputDocx"><strong>4. Modelo Word Institucional (.docx) para os Atestados:</strong></label>
       <input type="file" id="inputDocx" accept=".docx">
-      <small>Use as tags <code>{{ nome_monitor }}</code>, <code>{{ total_horas }}</code>, <code>{{ qtd_sessoes }}</code>, <code>{{ turma_ou_disciplina }}</code>, <code>{{ assuntos }}</code> e <code>{{ data_emissao }}</code> no seu Word.</small>
+      <small>Tags aceitas no Word: <code>{{ nome_monitor }}</code>, <code>{{ total_horas }}</code>, <code>{{ qtd_sessoes }}</code>, <code>{{ turma_ou_disciplina }}</code>, <code>{{ assuntos }}</code> e <code>{{ data_emissao }}</code>.</small>
 
       <div class="acoes">
         <button class="secondary" onclick="baixarExcel()">Baixar Planilha (.xlsx)</button>
@@ -94,21 +94,27 @@
 
     let registros = [];
 
-    // Carrega configurações salvas localmente
     window.addEventListener('DOMContentLoaded', () => {
-      if (localStorage.getItem('mon_apiUrl')) document.getElementById('apiUrl').value = localStorage.getItem('mon_apiUrl');
+      if (localStorage.getItem('mon_provedor')) document.getElementById('provedorApi').value = localStorage.getItem('mon_provedor');
       if (localStorage.getItem('mon_apiKey')) document.getElementById('apiKey').value = localStorage.getItem('mon_apiKey');
       if (localStorage.getItem('mon_apiModel')) document.getElementById('apiModel').value = localStorage.getItem('mon_apiModel');
       if (!document.getElementById('apiKey').value) document.getElementById('painelConfig').open = true;
     });
 
+    function alternarProvedor() {
+      const prov = document.getElementById('provedorApi').value;
+      const modelInput = document.getElementById('apiModel');
+      if (prov === 'gemini') modelInput.value = 'gemini-3.8-flash';
+      if (prov === 'groq') modelInput.value = 'meta-llama/llama-4-scout-17b-16e-instruct';
+      if (prov === 'openrouter') modelInput.value = 'qwen/qwen2.5-vl-32b-instruct:free';
+    }
+
     function salvarConfig() {
-      localStorage.setItem('mon_apiUrl', document.getElementById('apiUrl').value.trim());
+      localStorage.setItem('mon_provedor', document.getElementById('provedorApi').value);
       localStorage.setItem('mon_apiKey', document.getElementById('apiKey').value.trim());
       localStorage.setItem('mon_apiModel', document.getElementById('apiModel').value.trim());
     }
 
-    // Realça contraste e escala de cinza no canvas para escurecer grafite a lápis
     async function paginaParaBase64Contrastada(page) {
       const viewport = page.getViewport({ scale: 1.6 });
       const canvas = document.getElementById('canvasOculto');
@@ -144,9 +150,54 @@
       return parseFloat(String(informadas || 0).replace(',', '.')) || 0;
     }
 
+    async function consultarVisao(provedor, apiKey, apiModel, prompt, dataUrl) {
+      // Endpoint nativo do Google Gemini (suporta chaves AQ. e AIza via x-goog-api-key)
+      if (provedor === 'gemini' || apiKey.startsWith('AQ.') || apiKey.startsWith('AIza')) {
+        const base64Puro = dataUrl.split(',')[1];
+        const urlGemini = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(apiModel)}:generateContent`;
+        const resp = await fetch(urlGemini, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                { inline_data: { mime_type: 'image/jpeg', data: base64Puro } }
+              ]
+            }],
+            generationConfig: { temperature: 0.1 }
+          })
+        });
+        if (!resp.ok) {
+          const errTxt = await resp.text();
+          throw new Error(`Google AI Studio (${resp.status}): ${errTxt.slice(0, 200)}`); } const data = await resp.json(); return data.candidates?.[0]?.content?.parts?.[0]?.text \vert{}\vert{} ''; }  // Endpoint padrão OpenAI para Groq ou OpenRouter const endpoint = provedor === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.groq.com/openai/v1/chat/completions';  const resp = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: apiModel,
+          temperature: 0.1,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: dataUrl } }
+            ]
+          }]
+        })
+      });
+      if (!resp.ok) {
+        const errTxt = await resp.text();
+        throw new Error(`API (${resp.status}):${errTxt.slice(0, 200)}`);
+      }
+      const data = await resp.json();
+      return data.choices?.[0]?.message?.content || '';
+    }
+
     async function processarArquivos() {
       salvarConfig();
-      const apiUrl = document.getElementById('apiUrl').value.trim();
+      const provedor = document.getElementById('provedorApi').value;
       const apiKey = document.getElementById('apiKey').value.trim();
       const apiModel = document.getElementById('apiModel').value.trim();
       const files = document.getElementById('inputPdfs').files;
@@ -165,175 +216,4 @@
       const prompt = `Analise esta ficha de monitoria manuscrita (caneta ou lápis).
 Extraia APENAS o nome escrito na linha ou campo "Monitor(a)". Ignore alunos atendidos na lista abaixo.
 Responda EXCLUSIVAMENTE com JSON válido neste formato:
-{"registros":[{"nome_monitor":"","turma_ou_disciplina":"","data":"DD/MM/AAAA","hora_entrada":"HH:MM","hora_saida":"HH:MM","horas_informadas":0,"assuntos_ministrados":""}]}`;
-
-      try {
-        let novos = 0;
-        for (let fIdx = 0; fIdx < files.length; fIdx++) {
-          const arrayBuffer = await files[fIdx].arrayBuffer();
-          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
-          for (let p = 1; p <= pdf.numPages; p++) {
-            status.textContent = `Lendo arquivo ${fIdx + 1}/${files.length} (página ${p}/${pdf.numPages})...`;
-            const page = await pdf.getPage(p);
-            const dataUrl = await paginaParaBase64Contrastada(page);
-
-            const resp = await fetch(apiUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-              },
-              body: JSON.stringify({
-                model: apiModel,
-                temperature: 0.1,
-                messages: [{
-                  role: 'user',
-                  content: [
-                    { type: 'text', text: prompt },
-                    { type: 'image_url', image_url: { url: dataUrl } }
-                  ]
-                }]
-              })
-            });
-
-            if (!resp.ok) {
-              const errTxt = await resp.text();
-              throw new Error(`API retornou erro (${resp.status}): ${errTxt.slice(0, 150)}`);
-            }
-
-            const jsonResp = await resp.json();
-            const conteudo = jsonResp.choices?.[0]?.message?.content || '';
-            const match = conteudo.match(/\{[\s\S]*\}/);
-            if (match) {
-              const parsed = JSON.parse(match[0]);
-              for (const r of (parsed.registros || [])) {
-                const nome = (r.nome_monitor || '').trim();
-                if (!nome) continue;
-                registros.push({
-                  aprovado: true,
-                  nome_monitor: nome,
-                  turma_ou_disciplina: r.turma_ou_disciplina || '',
-                  data: r.data || '',
-                  hora_entrada: r.hora_entrada || '',
-                  hora_saida: r.hora_saida || '',
-                  horas: calcularHoras(r.hora_entrada, r.hora_saida, r.horas_informadas),
-                  assuntos_ministrados: r.assuntos_ministrados || ''
-                });
-                novos++;
-              }
-            }
-          }
-        }
-        renderizarTabela();
-        document.getElementById('secaoTabela').style.display = 'block';
-        status.textContent = `Concluído: ${novos} registro(s) de monitor extraído(s).`;
-      } catch (e) {
-        status.textContent = 'Erro: ' + e.message;
-      } finally {
-        btn.removeAttribute('aria-busy');
-        btn.disabled = false;
-      }
-    }
-
-    function renderizarTabela() {
-      const tbody = document.querySelector('#tabelaDados tbody');
-      tbody.innerHTML = '';
-      registros.forEach((r, i) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td><input type="checkbox" ${r.aprovado ? 'checked' : ''} onchange="registros[${i}].aprovado=this.checked"></td>
-          <td><input type="text" value="${r.nome_monitor.replace(/"/g, '&quot;')}" onchange="registros[${i}].nome_monitor=this.value"></td>
-          <td><input type="text" value="${r.turma_ou_disciplina.replace(/"/g, '&quot;')}" onchange="registros[${i}].turma_ou_disciplina=this.value"></td>
-          <td><input type="text" value="${r.data}" style="width:100px" onchange="registros[${i}].data=this.value"></td>
-          <td><input type="text" value="${r.hora_entrada}" style="width:68px" onchange="registros[${i}].hora_entrada=this.value"></td>
-          <td><input type="text" value="${r.hora_saida}" style="width:68px" onchange="registros[${i}].hora_saida=this.value"></td>
-          <td><input type="number" step="0.5" value="${r.horas}" style="width:72px" onchange="registros[${i}].horas=parseFloat(this.value)||0"></td>
-          <td><input type="text" value="${r.assuntos_ministrados.replace(/"/g, '&quot;')}" onchange="registros[${i}].assuntos_ministrados=this.value"></td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function agruparAprovados() {
-      const aprovados = registros.filter(r => r.aprovado);
-      const mapa = new Map();
-      for (const r of aprovados) {
-        const chave = r.nome_monitor.trim().toUpperCase();
-        if (!mapa.has(chave)) {
-          mapa.set(chave, {
-            nome_monitor: r.nome_monitor.trim(),
-            turmas: new Set(),
-            qtd_sessoes: 0,
-            total_horas: 0,
-            assuntos: new Set()
-          });
-        }
-        const item = mapa.get(chave);
-        if (r.turma_ou_disciplina) item.turmas.add(r.turma_ou_disciplina.trim());
-        if (r.assuntos_ministrados) item.assuntos.add(r.assuntos_ministrados.trim());
-        item.qtd_sessoes += 1;
-        item.total_horas = Math.round((item.total_horas + (Number(r.horas) || 0)) * 100) / 100;
-      }
-      return { aprovados, consolidados: Array.from(mapa.values()) };
-    }
-
-    function baixarExcel() {
-      const { aprovados, consolidados } = agruparAprovados();
-      if (!aprovados.length) return alert('Nenhum registro aprovado para exportar.');
-
-      const wb = XLSX.utils.book_new();
-      const wsDet = XLSX.utils.json_to_sheet(aprovados.map(({ aprovado, ...resto }) => resto));
-      const wsSum = XLSX.utils.json_to_sheet(consolidados.map(c => ({
-        nome_monitor: c.nome_monitor,
-        turmas_disciplinas: Array.from(c.turmas).join(', '),
-        qtd_sessoes: c.qtd_sessoes,
-        total_horas: c.total_horas,
-        assuntos: Array.from(c.assuntos).join(', ')
-      })));
-
-      XLSX.utils.book_append_sheet(wb, wsDet, 'Registros_Detalhados');
-      XLSX.utils.book_append_sheet(wb, wsSum, 'Somatoria_Por_Monitor');
-      XLSX.writeFile(wb, 'controle_monitores.xlsx');
-    }
-
-    async function gerarAtestadosZip() {
-      const docxInput = document.getElementById('inputDocx');
-      if (!docxInput.files.length) return alert('Selecione seu arquivo modelo (.docx) no passo 4.');
-
-      const { consolidados } = agruparAprovados();
-      if (!consolidados.length) return alert('Nenhum registro aprovado para emitir atestado.');
-
-      const status = document.getElementById('statusExport');
-      status.textContent = 'Gerando documentos Word...';
-
-      const templateBuffer = await docxInput.files[0].arrayBuffer();
-      const zip = new JSZip();
-      const hoje = new Date().toLocaleDateString('pt-BR');
-
-      for (const mon of consolidados) {
-        const pzip = new PizZip(templateBuffer);
-        const doc = new window.docxtemplater(pzip, { paragraphLoop: true, linebreaks: true });
-        doc.render({
-          nome_monitor: mon.nome_monitor,
-          turma_ou_disciplina: Array.from(mon.turmas).join(', ') || 'não informada',
-          qtd_sessoes: mon.qtd_sessoes,
-          total_horas: String(mon.total_horas).replace('.', ','),
-          assuntos: Array.from(mon.assuntos).join(', ') || 'atividades de monitoria',
-          data_emissao: hoje
-        });
-        const out = doc.getZip().generate({ type: 'blob' });
-        const nomeArquivo = mon.nome_monitor.replace(/[\\/*?:"<>|]/g, '').trim().replace(/\s+/g, '_');
-        zip.file(`Atestado_${nomeArquivo}.docx`, out);
-      }
-
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(zipBlob);
-      a.download = 'atestados_monitores.zip';
-      a.click();
-      status.textContent = `Download concluído (${consolidados.length} atestado(s) gerado(s)).`;
-    }
-  </script>
-</body>
-</html>
+{"registros":[{"nome_monitor":"","turma_ou_disciplina":"","data":"DD/MM/AAAA","hora_entrada":"HH:
