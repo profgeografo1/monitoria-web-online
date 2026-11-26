@@ -440,8 +440,8 @@
     </div>
 
     <div class="tags-box">
-      <strong>Marcadores disponíveis para o seu template PowerPoint (<code>.pptx</code>):</strong><br>
-      Insira no texto do slide as variáveis <code>{{nome_monitor}}</code>, <code>{{turma_ou_disciplina}}</code>, <code>{{total_horas_extenso}}</code>, <code>{{total_horas}}</code> e <code>{{data_emissao}}</code> (ou use <code>{{texto_atestado}}</code> para o parágrafo completo). Se nenhum template for enviado, será gerado um slide limpo padrão.
+      <strong>Marcadores suportados no seu template PowerPoint (<code>.pptx</code>):</strong><br>
+      Insira no slide as variáveis <code>{{Nome_Monitor}}</code> (ou <code>{{nome_monitor}}</code>), <code>{{texto_atestado}}</code>, <code>{{turma_ou_disciplina}}</code>, <code>{{total_horas_extenso}}</code>, <code>{{total_horas}}</code> e <code>{{data_emissao}}</code>. O sistema preserva 100% do layout, fontes e assinaturas do seu arquivo <code>.pptx</code>.
     </div>
 
     <div class="grid-2">
@@ -1306,7 +1306,7 @@ function montarDadosCertificado(mon, dataEmissao) {
   };
 }
 
-// Preenche marcadores {{variavel}} preservando 100% da formatação visual do slide PPTX
+// Preenche marcadores {{variavel}} (case-insensitive: {{Nome_Monitor}}, {{nome_monitor}}, {{texto_atestado}}, etc.)
 function preencherTemplatePptx(templateBuffer, dados) {
   const pzip = new PizZip(templateBuffer);
   const slideFiles = Object.keys(pzip.files).filter(f => /^ppt\/slides\/slide\d+\.xml$/.test(f));
@@ -1328,16 +1328,17 @@ function preencherTemplatePptx(templateBuffer, dados) {
   for (const slidePath of slideFiles) {
     let xml = pzip.file(slidePath).asText();
 
-    // 1. Junta tags {{...}} caso o PowerPoint tenha fragmentado em múltiplas tags <a:t>
+    // 1. Reagrupa tags {{...}} caso o PowerPoint tenha fragmentado em múltiplos <a:t>
     xml = xml.replace(/\{\{([\s\S]*?)\}\}/g, (match, interno) => {
       const chaveLimpa = interno.replace(/<[^>]+>/g, '').replace(/\s+/g, '').trim();
       return `{{${chaveLimpa}}}`;
     });
 
-    // 2. Substitui cada marcador pelo valor escapado em XML
+    // 2. Substitui cada marcador ignorando maiúsculas/minúsculas (ex: {{Nome_Monitor}} ou {{nome_monitor}})
     xml = xml.replace(/\{\{([a-zA-Z0-9_]+)\}\}/g, (match, chave) => {
-      if (Object.prototype.hasOwnProperty.call(mapaSubstituicao, chave)) {
-        return escaparXml(mapaSubstituicao[chave]);
+      const chaveNormalizada = chave.toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(mapaSubstituicao, chaveNormalizada)) {
+        return escaparXml(mapaSubstituicao[chaveNormalizada]);
       }
       return match;
     });
@@ -1348,7 +1349,6 @@ function preencherTemplatePptx(templateBuffer, dados) {
   return pzip;
 }
 
-// Fallback genérico (sem nenhum nome de instituição fixo) caso o usuário gere sem enviar template
 function criarPptxGenericoPadrao(dados) {
   const zip = new PizZip();
 
