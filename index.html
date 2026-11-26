@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Gestão de Monitorias — Painel Web</title>
-  <!-- Bibliotecas leves para processamento local no navegador -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.7/dist/pizzip.min.js"></script>
@@ -40,7 +39,6 @@
       padding-bottom: 3rem;
     }
 
-    /* Barra Superior */
     .topbar {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
@@ -80,7 +78,6 @@
 
     .container { max-width: 1180px; margin: 0 auto; padding: 0 1rem; }
 
-    /* Cartões */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -92,7 +89,7 @@
 
     .card-header {
       display: flex; align-items: center; justify-content: space-between;
-      gap: 0.75rem; margin-bottom: 1rem;
+      gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap;
     }
 
     .step-title { display: flex; align-items: center; gap: 0.65rem; font-size: 1rem; font-weight: 600; }
@@ -103,7 +100,6 @@
       font-size: 0.82rem; font-weight: 700;
     }
 
-    /* Formulários e Inputs */
     .grid-3 { display: grid; grid-template-columns: 1.2fr 1.6fr 1.2fr; gap: 1rem; }
     @media (max-width: 820px) { .grid-3 { grid-template-columns: 1fr; } }
 
@@ -120,7 +116,6 @@
       background: var(--surface);
       color: var(--text);
       font-size: 0.88rem;
-      transition: border-color 0.15s, box-shadow 0.15s;
     }
 
     input:focus, select:focus {
@@ -129,7 +124,6 @@
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
     }
 
-    /* Zona de Upload Moderna */
     .dropzone {
       border: 2px dashed #cbd5e1;
       border-radius: 10px;
@@ -147,23 +141,19 @@
     .dropzone strong { color: var(--primary); display: block; margin-bottom: 0.2rem; }
     .dropzone span { font-size: 0.8rem; color: var(--text-muted); }
 
-    /* Botões */
     .btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
       padding: 0.6rem 1.15rem;
       border: none; border-radius: 8px;
       font-size: 0.88rem; font-weight: 600;
-      cursor: pointer; transition: background 0.15s, opacity 0.15s;
+      cursor: pointer;
     }
     .btn:disabled { opacity: 0.6; cursor: not-allowed; }
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
     .btn-success { background: var(--success); color: #fff; }
     .btn-success:hover:not(:disabled) { background: var(--success-hover); }
-    .btn-outline {
-      background: var(--surface); color: var(--text);
-      border: 1px solid var(--border);
-    }
+    .btn-outline { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
     .btn-outline:hover:not(:disabled) { background: var(--surface-alt); }
     .btn-icon {
       background: transparent; border: none; color: var(--text-muted);
@@ -171,42 +161,29 @@
     }
     .btn-icon:hover { background: #fee2e2; color: var(--danger); }
 
-    /* Barra de Métricas */
-    .stats-bar {
-      display: flex; gap: 1rem; flex-wrap: wrap;
-      margin-bottom: 1rem;
-    }
+    .stats-bar { display: flex; gap: 0.75rem; flex-wrap: wrap; }
     .stat-box {
       background: var(--surface-alt);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 0.5rem 0.9rem;
+      padding: 0.45rem 0.85rem;
       font-size: 0.82rem;
     }
-    .stat-box strong { font-size: 1rem; color: var(--primary); margin-left: 0.35rem; }
+    .stat-box strong { font-size: 0.98rem; color: var(--primary); margin-left: 0.3rem; }
 
-    /* Tabela Moderna */
-    .table-wrap {
-      overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-    }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
     table { width: 100%; border-collapse: collapse; background: var(--surface); }
     th {
       background: var(--surface-alt);
       color: var(--text-muted);
-      font-size: 0.76rem;
+      font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.03em;
       text-align: left;
-      padding: 0.65rem 0.6rem;
+      padding: 0.65rem 0.55rem;
       border-bottom: 1px solid var(--border);
     }
-    td {
-      padding: 0.35rem 0.45rem;
-      border-bottom: 1px solid var(--border);
-      vertical-align: middle;
-    }
+    td { padding: 0.3rem 0.4rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: #f8fafc; }
     tr.inativo td { opacity: 0.45; }
@@ -214,7 +191,7 @@
     td input[type="text"], td input[type="number"] {
       border-color: transparent;
       background: transparent;
-      padding: 0.35rem 0.45rem;
+      padding: 0.35rem 0.4rem;
     }
     td input[type="text"]:hover, td input[type="number"]:hover { border-color: var(--border); background: #fff; }
     td input[type="text"]:focus, td input[type="number"]:focus { border-color: var(--border-focus); background: #fff; }
@@ -238,7 +215,7 @@
         <div class="brand-icon">M</div>
         <div>
           <h1>Gestão de Monitorias</h1>
-          <p>Extração inteligente de fichas manuscritas e emissão de atestados</p>
+          <p>Extração de fichas manuscritas, cálculo automático de horas e emissão de atestados</p>
         </div>
       </div>
       <span class="pill">● Modo Leve • Chromebook Ready</span>
@@ -247,7 +224,7 @@
 
   <main class="container">
 
-    <!-- Passo 1: Configuração -->
+    <!-- 1. Configuração -->
     <section class="card">
       <details id="painelConfig">
         <summary class="card-header" style="margin-bottom:0;">
@@ -280,7 +257,7 @@
       </details>
     </section>
 
-    <!-- Passo 2: Upload -->
+    <!-- 2. Upload -->
     <section class="card">
       <div class="card-header">
         <div class="step-title">
@@ -304,16 +281,17 @@
       <div id="statusLeitura" class="status-msg"></div>
     </section>
 
-    <!-- Passo 3 e 4: Conferência e Exportação -->
+    <!-- 3 e 4. Conferência e Exportação -->
     <section class="card" id="secaoTabela" style="display:none;">
       <div class="card-header">
         <div class="step-title">
           <span class="step-badge">3</span>
-          <span>Conferência e Aprovação dos Registros</span>
+          <span>Conferência e Aprovação (Ordenado por Monitor)</span>
         </div>
-        <div class="stats-bar" style="margin:0;">
-          <div class="stat-box">Aprovados: <strong id="statQtd">0</strong></div>
-          <div class="stat-box">Total de Horas: <strong id="statHoras">0</strong></div>
+        <div class="stats-bar">
+          <div class="stat-box">Sessões Aprovadas: <strong id="statQtd">0</strong></div>
+          <div class="stat-box">Total de Horas (Decimal): <strong id="statHoras">0.00</strong></div>
+          <button class="btn btn-outline" style="padding: 0.35rem 0.7rem; font-size:0.8rem;" onclick="ordenarPorMonitor()">Ordenar A–Z</button>
         </div>
       </div>
 
@@ -324,7 +302,7 @@
               <th style="width:42px; text-align:center;">OK</th>
               <th>Monitor(a)</th>
               <th>Turma / Disciplina</th>
-              <th style="width:115px;">Data</th>
+              <th style="width:110px;">Data</th>
               <th style="width:82px;">Início</th>
               <th style="width:82px;">Fim</th>
               <th style="width:85px;">Horas</th>
@@ -347,12 +325,12 @@
 
       <div class="dropzone" style="padding: 1rem;" onclick="document.getElementById('inputDocx').click()">
         <strong id="labelDocx">Selecionar Modelo Word Institucional (.docx)</strong>
-        <span>Tags disponíveis: <code>{{ nome_monitor }}</code>, <code>{{ total_horas }}</code>, <code>{{ qtd_sessoes }}</code>, <code>{{ turma_ou_disciplina }}</code>, <code>{{ assuntos }}</code>, <code>{{ data_emissao }}</code></span>
+        <span>Tags: <code>{{ nome_monitor }}</code>, <code>{{ total_horas }}</code>, <code>{{ qtd_sessoes }}</code>, <code>{{ turma_ou_disciplina }}</code>, <code>{{ assuntos }}</code>, <code>{{ data_emissao }}</code></span>
         <input type="file" id="inputDocx" accept=".docx" style="display:none;" onchange="atualizarLabelDocx()">
       </div>
 
       <div class="actions-row">
-        <button class="btn btn-outline" onclick="baixarExcel()">Baixar Planilha Consolidada (.xlsx)</button>
+        <button class="btn btn-outline" onclick="baixarExcel()">Baixar Planilha com Fórmulas (=SOMA) (.xlsx)</button>
         <button class="btn btn-success" onclick="gerarAtestadosZip()">Gerar Atestados Aprovados (.zip)</button>
       </div>
       <div id="statusExport" class="status-msg"></div>
@@ -367,13 +345,15 @@
 
     let registros = [];
 
+    // =========================================================================
+    // 1. INICIALIZAÇÃO E CONFIGURAÇÃO
+    // =========================================================================
     window.addEventListener('DOMContentLoaded', () => {
       if (localStorage.getItem('mon_provedor')) document.getElementById('provedorApi').value = localStorage.getItem('mon_provedor');
       if (localStorage.getItem('mon_apiKey')) document.getElementById('apiKey').value = localStorage.getItem('mon_apiKey');
       if (localStorage.getItem('mon_apiModel')) document.getElementById('apiModel').value = localStorage.getItem('mon_apiModel');
       if (!document.getElementById('apiKey').value) document.getElementById('painelConfig').open = true;
 
-      // Suporte a arrastar e soltar PDFs
       const zona = document.getElementById('zonaPdf');
       zona.addEventListener('dragover', e => { e.preventDefault(); zona.classList.add('dragover'); });
       zona.addEventListener('dragleave', () => zona.classList.remove('dragover'));
@@ -413,6 +393,56 @@
       localStorage.setItem('mon_apiModel', document.getElementById('apiModel').value.trim());
     }
 
+    // =========================================================================
+    // 2. NORMALIZAÇÃO DE HORÁRIOS E CÁLCULO NUMÉRICO SEGURO
+    // =========================================================================
+    function normalizarHorario(valor) {
+      if (!valor) return '';
+      let s = String(valor).trim().toLowerCase();
+      // Remove dois-pontos sobrando no início ou fim (ex: "08:00:" -> "08:00")
+      s = s.replace(/^:+|:+$/g, '');
+      // Converte formatos escritos como "14h", "14h30", "15h50min"
+      const matchH = s.match(/^(\d{1,2})\s*h\s*(\d{0,2})/);
+      if (matchH) {
+        const hh = matchH[1].padStart(2, '0');
+        const mm = (matchH[2] || '00').padStart(2, '0');
+        return `${hh}:${mm}`;
+      }
+      // Converte "08:00:00" ou "8:0" para "08:00"
+      const matchColon = s.match(/^(\d{1,2}):(\d{1,2})/);
+      if (matchColon) {
+        return `${matchColon[1].padStart(2, '0')}:${matchColon[2].padStart(2, '0')}`;
+      }
+      return s;
+    }
+
+    function calcularHoras(entrada, saida, informadas) {
+      const eNorm = normalizarHorario(entrada);
+      const sNorm = normalizarHorario(saida);
+
+      if (eNorm && sNorm && eNorm.includes(':') && sNorm.includes(':')) {
+        const [h1, m1] = eNorm.split(':').map(Number);
+        const [h2, m2] = sNorm.split(':').map(Number);
+        if (!isNaN(h1) && !isNaN(m1) && !isNaN(h2) && !isNaN(m2)) {
+          // Trata virada de meia-noite caso hora_saida seja 00:00
+          const fimAjustado = (h2 === 0 && m2 === 0 && h1 > 0) ? 24 * 60 : (h2 * 60 + m2);
+          const diff = (fimAjustado - (h1 * 60 + m1)) / 60;
+          if (diff > 0 && diff <= 16) {
+            return Number((Math.round(diff * 100) / 100).toFixed(2));
+          }
+        }
+      }
+      const num = parseFloat(String(informadas || 0).replace(',', '.'));
+      return isNaN(num) ? 0 : Number(num.toFixed(2));
+    }
+
+    // =========================================================================
+    // 3. LEITURA DE PDF E CHAMADA À API DE VISÃO (COM RETRY AUTOMÁTICO)
+    // =========================================================================
+    async function esperar(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     async function paginaParaBase64Contrastada(page) {
       const viewport = page.getViewport({ scale: 1.6 });
       const canvas = document.getElementById('canvasOculto');
@@ -436,44 +466,48 @@
       return canvas.toDataURL('image/jpeg', 0.85);
     }
 
-    function calcularHoras(entrada, saida, informadas) {
-      if (entrada && saida && entrada.includes(':') && saida.includes(':')) {
-        const [h1, m1] = entrada.split(':').map(Number);
-        const [h2, m2] = saida.split(':').map(Number);
-        if (!isNaN(h1) && !isNaN(h2)) {
-          const diff = ((h2 * 60 + (m2 || 0)) - (h1 * 60 + (m1 || 0))) / 60;
-          if (diff > 0) return Math.round(diff * 100) / 100;
-        }
-      }
-      return parseFloat(String(informadas || 0).replace(',', '.')) || 0;
-    }
-
     async function consultarVisao(provedor, apiKey, apiModel, prompt, dataUrl) {
       if (provedor === 'gemini' || apiKey.startsWith('AQ.') || apiKey.startsWith('AIza')) {
         const base64Puro = dataUrl.split(',')[1];
-        const urlGemini = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(apiModel)}:generateContent`;
-        const resp = await fetch(urlGemini, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: prompt },
-                { inline_data: { mime_type: 'image/jpeg', data: base64Puro } }
-              ]
-            }],
-            generationConfig: { temperature: 0.1 }
-          })
-        });
-        if (!resp.ok) {
+        const modeloReserva = apiModel === 'gemini-3.5-flash-lite' ? 'gemini-3.8-flash' : 'gemini-3.5-flash-lite';
+        const tentativasModelos = [apiModel, apiModel, modeloReserva];
+
+        for (let t = 0; t < tentativasModelos.length; t++) {
+          const modeloAtual = tentativasModelos[t];
+          const urlGemini = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modeloAtual)}:generateContent`;
+
+          const resp = await fetch(urlGemini, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': apiKey
+            },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: prompt },
+                  { inline_data: { mime_type: 'image/jpeg', data: base64Puro } }
+                ]
+              }],
+              generationConfig: { temperature: 0.1 }
+            })
+          });
+
+          if (resp.ok) {
+            const data = await resp.json();
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          }
+
+          if ((resp.status === 503 || resp.status === 429) && t < tentativasModelos.length - 1) {
+            document.getElementById('statusLeitura').textContent =
+              `Servidor ocupado (${resp.status}). Tentando novamente em 4s (${modeloReserva})...`;
+            await esperar(4000);
+            continue;
+          }
+
           const errTxt = await resp.text();
           throw new Error(`Google AI Studio (${resp.status}): ${errTxt.slice(0, 200)}`);
         }
-        const data = await resp.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       }
 
       const endpoint = provedor === 'openrouter'
@@ -527,6 +561,7 @@
 
       const prompt = `Analise esta ficha de monitoria manuscrita (caneta ou lápis).
 Extraia APENAS o nome escrito na linha ou campo "Monitor(a)". Ignore alunos atendidos na lista abaixo.
+Formate hora_entrada e hora_saida estritamente como "HH:MM" (sem dois pontos no final).
 Responda EXCLUSIVAMENTE com JSON válido neste formato:
 {"registros":[{"nome_monitor":"","turma_ou_disciplina":"","data":"DD/MM/AAAA","hora_entrada":"HH:MM","hora_saida":"HH:MM","horas_informadas":0,"assuntos_ministrados":""}]}`;
 
@@ -548,22 +583,27 @@ Responda EXCLUSIVAMENTE com JSON válido neste formato:
               for (const r of (parsed.registros || [])) {
                 const nome = (r.nome_monitor || '').trim();
                 if (!nome) continue;
+
+                const hEntrada = normalizarHorario(r.hora_entrada);
+                const hSaida = normalizarHorario(r.hora_saida);
+                const hCalc = calcularHoras(hEntrada, hSaida, r.horas_informadas);
+
                 registros.push({
                   aprovado: true,
                   nome_monitor: nome,
-                  turma_ou_disciplina: r.turma_ou_disciplina || '',
-                  data: r.data || '',
-                  hora_entrada: r.hora_entrada || '',
-                  hora_saida: r.hora_saida || '',
-                  horas: calcularHoras(r.hora_entrada, r.hora_saida, r.horas_informadas),
-                  assuntos_ministrados: r.assuntos_ministrados || ''
+                  turma_ou_disciplina: (r.turma_ou_disciplina || '').trim(),
+                  data: (r.data || '').trim(),
+                  hora_entrada: hEntrada,
+                  hora_saida: hSaida,
+                  horas: hCalc,
+                  assuntos_ministrados: (r.assuntos_ministrados || '').trim()
                 });
                 novos++;
               }
             }
           }
         }
-        renderizarTabela();
+        ordenarPorMonitor();
         document.getElementById('secaoTabela').style.display = 'block';
         status.className = 'status-msg ok';
         status.textContent = `Leitura concluída: ${novos} registro(s) extraído(s).`;
@@ -576,19 +616,33 @@ Responda EXCLUSIVAMENTE com JSON válido neste formato:
       }
     }
 
+    // =========================================================================
+    // 4. TABELA INTERATIVA DE CONFERÊNCIA
+    // =========================================================================
+    function ordenarPorMonitor() {
+      registros.sort((a, b) => a.nome_monitor.localeCompare(b.nome_monitor, 'pt-BR'));
+      renderizarTabela();
+    }
+
     function adicionarLinhaManual() {
       registros.push({
         aprovado: true,
         nome_monitor: '',
         turma_ou_disciplina: '',
         data: new Date().toLocaleDateString('pt-BR'),
-        hora_entrada: '',
-        hora_saida: '',
-        horas: 1,
+        hora_entrada: '13:30',
+        hora_saida: '15:30',
+        horas: 2,
         assuntos_ministrados: ''
       });
       renderizarTabela();
       document.getElementById('secaoTabela').style.display = 'block';
+    }
+
+    function atualizarHorarioLinha(idx, campo, valor) {
+      registros[idx][campo] = normalizarHorario(valor);
+      registros[idx].horas = calcularHoras(registros[idx].hora_entrada, registros[idx].hora_saida, registros[idx].horas);
+      renderizarTabela();
     }
 
     function removerLinha(idx) {
@@ -600,7 +654,7 @@ Responda EXCLUSIVAMENTE com JSON válido neste formato:
       const aprovados = registros.filter(r => r.aprovado);
       const totalHoras = aprovados.reduce((acc, r) => acc + (Number(r.horas) || 0), 0);
       document.getElementById('statQtd').textContent = aprovados.length;
-      document.getElementById('statHoras').textContent = Math.round(totalHoras * 100) / 100;
+      document.getElementById('statHoras').textContent = totalHoras.toFixed(2);
     }
 
     function renderizarTabela() {
@@ -613,13 +667,13 @@ Responda EXCLUSIVAMENTE com JSON válido neste formato:
           <td style="text-align:center;">
             <input type="checkbox" ${r.aprovado ? 'checked' : ''} onchange="registros[${i}].aprovado=this.checked; renderizarTabela();">
           </td>
-          <td><input type="text" placeholder="Nome do monitor" value="${r.nome_monitor.replace(/"/g, '&quot;')}" onchange="registros[${i}].nome_monitor=this.value"></td>
-          <td><input type="text" placeholder="Turma/Disc." value="${r.turma_ou_disciplina.replace(/"/g, '&quot;')}" onchange="registros[${i}].turma_ou_disciplina=this.value"></td>
-          <td><input type="text" value="${r.data}" onchange="registros[${i}].data=this.value"></td>
-          <td><input type="text" value="${r.hora_entrada}" onchange="registros[${i}].hora_entrada=this.value"></td>
-          <td><input type="text" value="${r.hora_saida}" onchange="registros[${i}].hora_saida=this.value"></td>
-          <td><input type="number" step="0.5" value="${r.horas}" onchange="registros[${i}].horas=parseFloat(this.value)||0; atualizarEstatisticas();"></td>
-          <td><input type="text" placeholder="Conteúdos" value="${r.assuntos_ministrados.replace(/"/g, '&quot;')}" onchange="registros[${i}].assuntos_ministrados=this.value"></td>
+          <td><input type="text" placeholder="Nome do monitor" value="${r.nome_monitor.replace(/"/g, '&quot;')}" onchange="registros[${i}].nome_monitor=this.value.trim()"></td>
+          <td><input type="text" placeholder="Turma/Disc." value="${r.turma_ou_disciplina.replace(/"/g, '&quot;')}" onchange="registros[${i}].turma_ou_disciplina=this.value.trim()"></td>
+          <td><input type="text" value="${r.data}" onchange="registros[${i}].data=this.value.trim()"></td>
+          <td><input type="text" value="${r.hora_entrada}" onchange="atualizarHorarioLinha(${i}, 'hora_entrada', this.value)"></td>
+          <td><input type="text" value="${r.hora_saida}" onchange="atualizarHorarioLinha(${i}, 'hora_saida', this.value)"></td>
+          <td><input type="number" step="0.01" value="${Number(r.horas).toFixed(2)}" onchange="registros[${i}].horas=parseFloat(this.value)||0; atualizarEstatisticas();"></td>
+          <td><input type="text" placeholder="Conteúdos" value="${r.assuntos_ministrados.replace(/"/g, '&quot;')}" onchange="registros[${i}].assuntos_ministrados=this.value.trim()"></td>
           <td style="text-align:center;">
             <button class="btn-icon" title="Excluir linha" onclick="removerLinha(${i})">✕</button>
           </td>
@@ -629,8 +683,14 @@ Responda EXCLUSIVAMENTE com JSON válido neste formato:
       atualizarEstatisticas();
     }
 
+    // =========================================================================
+    // 5. CONSOLIDAÇÃO E EXPORTAÇÃO EXCEL (COM FÓRMULAS =SOMA E TIPO NUMÉRICO)
+    // =========================================================================
     function agruparAprovados() {
-      const aprovados = registros.filter(r => r.aprovado && r.nome_monitor.trim());
+      const aprovados = registros
+        .filter(r => r.aprovado && r.nome_monitor.trim())
+        .sort((a, b) => a.nome_monitor.localeCompare(b.nome_monitor, 'pt-BR'));
+
       const mapa = new Map();
       for (const r of aprovados) {
         const chave = r.nome_monitor.trim().toUpperCase();
@@ -647,7 +707,7 @@ Responda EXCLUSIVAMENTE com JSON válido neste formato:
         if (r.turma_ou_disciplina) item.turmas.add(r.turma_ou_disciplina.trim());
         if (r.assuntos_ministrados) item.assuntos.add(r.assuntos_ministrados.trim());
         item.qtd_sessoes += 1;
-        item.total_horas = Math.round((item.total_horas + (Number(r.horas) || 0)) * 100) / 100;
+        item.total_horas = Number((item.total_horas + (Number(r.horas) || 0)).toFixed(2));
       }
       return { aprovados, consolidados: Array.from(mapa.values()) };
     }
@@ -657,20 +717,89 @@ Responda EXCLUSIVAMENTE com JSON válido neste formato:
       if (!aprovados.length) return alert('Nenhum registro aprovado para exportar.');
 
       const wb = XLSX.utils.book_new();
-      const wsDet = XLSX.utils.json_to_sheet(aprovados.map(({ aprovado, ...resto }) => resto));
-      const wsSum = XLSX.utils.json_to_sheet(consolidados.map(c => ({
+
+      // --- ABA 1: Registros_Detalhados ---
+      const dadosDet = aprovados.map(r => ({
+        nome_monitor: r.nome_monitor,
+        turma_ou_disciplina: r.turma_ou_disciplina,
+        data: r.data,
+        hora_entrada: normalizarHorario(r.hora_entrada),
+        hora_saida: normalizarHorario(r.hora_saida),
+        horas: Number((Number(r.horas) || 0).toFixed(2)),
+        assuntos_ministrados: r.assuntos_ministrados
+      }));
+
+      const wsDet = XLSX.utils.json_to_sheet(dadosDet);
+      const ultimaLinhaDet = dadosDet.length + 1;
+
+      // Força tipo numérico (t: 'n') e formato decimal '0.00' na coluna F (horas)
+      for (let r = 2; r <= ultimaLinhaDet; r++) {
+        const cell = wsDet[`F${r}`];
+        if (cell) {
+          cell.t = 'n';
+          cell.v = Number(cell.v) || 0;
+          cell.z = '0.00';
+        }
+      }
+
+      // Adiciona linha de TOTAL GERAL com fórmula nativa =SUM(F2:Fn)
+      const linhaTotalDet = ultimaLinhaDet + 1;
+      XLSX.utils.sheet_add_aoa(wsDet, [[
+        'TOTAL GERAL', '', '', '', '',
+        { t: 'n', f: `SUM(F2:F${ultimaLinhaDet})`, z: '0.00' },
+        ''
+      ]], { origin: `A${linhaTotalDet}` });
+
+      wsDet['!cols'] = [
+        { wch: 26 }, { wch: 20 }, { wch: 12 }, { wch: 13 }, { wch: 13 }, { wch: 10 }, { wch: 45 }
+      ];
+
+      // --- ABA 2: Somatoria_Por_Monitor ---
+      const dadosSum = consolidados.map(c => ({
         nome_monitor: c.nome_monitor,
         turmas_disciplinas: Array.from(c.turmas).join(', '),
-        qtd_sessoes: c.qtd_sessoes,
-        total_horas: c.total_horas,
+        qtd_sessoes: Number(c.qtd_sessoes),
+        total_horas: Number(c.total_horas.toFixed(2)),
         assuntos: Array.from(c.assuntos).join(', ')
-      })));
+      }));
+
+      const wsSum = XLSX.utils.json_to_sheet(dadosSum);
+      const ultimaLinhaSum = dadosSum.length + 1;
+
+      // Garante fórmula =SUMIF(...) vinculada à Aba 1 e formato numérico '0.00'
+      for (let r = 2; r <= ultimaLinhaSum; r++) {
+        const cellQtd = wsSum[`C${r}`];
+        if (cellQtd) { cellQtd.t = 'n'; cellQtd.z = '0'; }
+
+        wsSum[`D${r}`] = {
+          t: 'n',
+          f: `SUMIF(Registros_Detalhados!$A$2:$A$${ultimaLinhaDet}, A${r}, Registros_Detalhados!$F$2:$F$${ultimaLinhaDet})`,
+          v: Number(dadosSum[r - 2].total_horas) || 0,
+          z: '0.00'
+        };
+      }
+
+      // Linha de TOTAL GERAL na Aba 2
+      const linhaTotalSum = ultimaLinhaSum + 1;
+      XLSX.utils.sheet_add_aoa(wsSum, [[
+        'TOTAL GERAL', '',
+        { t: 'n', f: `SUM(C2:C${ultimaLinhaSum})`, z: '0' },
+        { t: 'n', f: `SUM(D2:D${ultimaLinhaSum})`, z: '0.00' },
+        ''
+      ]], { origin: `A${linhaTotalSum}` });
+
+      wsSum['!cols'] = [
+        { wch: 26 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 50 }
+      ];
 
       XLSX.utils.book_append_sheet(wb, wsDet, 'Registros_Detalhados');
       XLSX.utils.book_append_sheet(wb, wsSum, 'Somatoria_Por_Monitor');
       XLSX.writeFile(wb, 'controle_monitores.xlsx');
     }
 
+    // =========================================================================
+    // 6. GERAÇÃO DOS ATESTADOS (.DOCX EM .ZIP)
+    // =========================================================================
     async function gerarAtestadosZip() {
       const docxInput = document.getElementById('inputDocx');
       if (!docxInput.files.length) return alert('Selecione seu arquivo modelo (.docx) na etapa 4.');
@@ -693,7 +822,7 @@ Responda EXCLUSIVAMENTE com JSON válido neste formato:
           nome_monitor: mon.nome_monitor,
           turma_ou_disciplina: Array.from(mon.turmas).join(', ') || 'não informada',
           qtd_sessoes: mon.qtd_sessoes,
-          total_horas: String(mon.total_horas).replace('.', ','),
+          total_horas: mon.total_horas.toFixed(2).replace('.', ','),
           assuntos: Array.from(mon.assuntos).join(', ') || 'atividades de monitoria',
           data_emissao: hoje
         });
