@@ -840,6 +840,22 @@ function montarTextoAtestado(mon, dataEmissao) {
   };
 }
 
+function limparTagsQuebradasDocx(pzip) {
+  // Junta tags {{ ... }} que o Word/Google Docs tenha dividido em múltiplos elementos <w:t>
+  const xmlFiles = Object.keys(pzip.files).filter(f => f.startsWith('word/') && f.endsWith('.xml'));
+  for (const fileName of xmlFiles) {
+    let xml = pzip.file(fileName)?.asText();
+    if (!xml || !xml.includes('{')) continue;
+
+    // Remove tags XML internas situadas entre {{ e }}
+    xml = xml.replace(/\{\{([\s\S]*?)\}\}/g, (match, conteudo) => {
+      const limpo = conteudo.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+      return `{{${limpo}}}`;
+    });
+    pzip.file(fileName, xml);
+  }
+}
+
 async function gerarAtestadosZip() {
   const docxInput = $('inputDocx');
   const xlsxInput = $('inputXlsxRevisado');
@@ -870,7 +886,6 @@ async function gerarAtestadosZip() {
       throw new Error('O arquivo selecionado não é um documento .docx válido.');
     }
 
-    // Verifica todos os arquivos XML internos (corpo, cabeçalhos e rodapés)
     const xmlFiles = Object.keys(testeZip.files).filter(f => f.startsWith('word/') && f.endsWith('.xml'));
     const todoTextoXml = xmlFiles
       .map(f => testeZip.file(f)?.asText() || '')
@@ -893,9 +908,12 @@ async function gerarAtestadosZip() {
     for (let i = 0; i < monitores.length; i++) {
       status.textContent = `Gerando atestado ${i + 1} de ${monitores.length}...`;
       const pzip = new PizZip(template);
+      limparTagsQuebradasDocx(pzip);
+
       const doc = new window.docxtemplater(pzip, {
         paragraphLoop: true,
         linebreaks: true,
+        delimiters: { start: '{{', end: '}}' },
         nullGetter: () => ''
       });
 
@@ -903,6 +921,12 @@ async function gerarAtestadosZip() {
       try {
         doc.render(dados);
       } catch (e) {
+        if (e.properties && Array.isArray(e.properties.errors)) {
+          const detalhes = e.properties.errors
+            .map(err => `${err.properties?.explanation || err.message} (trecho: "${err.properties?.xtag || ''}")`)
+            .join(' | ');
+          throw new Error(`Falha nas tags do modelo Word: ${detalhes}`);
+        }
         throw new Error(`Erro ao preencher o modelo para ${dados.nome_monitor}: ${e.message || e}`);
       }
 
