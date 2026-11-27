@@ -442,8 +442,8 @@
 
     <div class="tags-box">
       <strong>Preservação exata do modelo + Negrito seletivo:</strong><br>
-      • Mantém 100% dos <strong>tamanhos de fonte</strong>, <strong>distanciamentos</strong>, <strong>cores</strong> e <strong>assinaturas</strong> do seu slide modelo (<code>Certificadoanosfinais2.pptx</code>).<br>
-      • Aplica <strong>negrito</strong> exclusivamente em <code>{{Nome_Monitor}}</code> e <code>{{total_horas_extenso}}</code> / <code>{{total_horas}}</code>, mantendo o restante do parágrafo em fonte normal (sem negrito) e justificado com espaçamento 1,5 (ABNT).
+      • Mantém os <strong>tamanhos de fonte</strong>, <strong>distanciamentos</strong>, <strong>cores</strong> e <strong>assinaturas</strong> do seu slide modelo.<br>
+      • Reagrupa automaticamente marcadores divididos pelo PowerPoint/Google Slides e aplica <strong>negrito</strong> exclusivamente em <code>{{Nome_Monitor}}</code> e <code>{{total_horas_extenso}}</code> / <code>{{total_horas}}</code>, mantendo o restante do parágrafo em fonte normal e justificado com espaçamento 1,5 (ABNT).
     </div>
 
     <div class="grid-2">
@@ -1304,7 +1304,7 @@ function montarDadosCertificado(mon, dataEmissao) {
     total_horas_curto: curto,
     total_horas_extenso: extenso,
     data_emissao: dataEmissao,
-    texto_atestado: `Certificamos que ${mon.nome_monitor} atuou como monitor(a) de ${turmas}, cumprindo a carga horária total de ${extenso} de atividades de monitoria.`
+    texto_atestado: `Certificamos que ${mon.nome_monitor} atuou como monitor(a) de ${turmas} cumprindo a carga horária ${extenso} de atividades de monitoria.`
   };
 }
 
@@ -1328,6 +1328,47 @@ function criarRunPreservandoEstilo(rPrOriginal, texto, negrito) {
   return `<a:r>${rPr}<a:t xml:space="preserve">${escaparXml(texto)}</a:t></a:r>`;
 }
 
+// Reagrupa tags {{...}} que o PowerPoint/Google Slides dividiu em múltiplos <a:r> dentro do mesmo parágrafo
+function consolidarPlaceholdersEmParagrafo(pXml) {
+  let out = pXml;
+  let iteracoes = 0;
+
+  // Enquanto houver uma tag <a:r> contendo '{{' sem '}}' na mesma run, puxa o texto da próxima <a:r> para dentro dela
+  while (iteracoes < 60) {
+    const proximo = out.replace(
+      /(<a:r\b[^>]*>(?:(?!<\/a:r>)[\s\S])*?<a:t\b[^>]*>)((?:(?!<\/a:t>)[\s\S])*?\{\{(?:(?![}])[\s\S])*?)(<\/a:t><\/a:r>)(\s*<a:r\b[^>]*>(?:(?!<\/a:r>)[\s\S])*?<a:t\b[^>]*>)([\s\S]*?)(<\/a:t><\/a:r>)/,
+      (match, abreRun1, texto1, fechaRun1, abreRun2, texto2, fechaRun2) => {
+        return `${abreRun1}${texto1}${texto2}${fechaRun1}`;
+      }
+    );
+    if (proximo === out) break;
+    out = proximo;
+    iteracoes++;
+  }
+
+  // Trata também chaves isoladas '{' no fim de uma run seguidas por '{' no início da próxima run
+  iteracoes = 0;
+  while (iteracoes < 30) {
+    const proximo = out.replace(
+      /(<a:r\b[^>]*>(?:(?!<\/a:r>)[\s\S])*?<a:t\b[^>]*>)((?:(?!<\/a:t>)[\s\S])*?\{)(<\/a:t><\/a:r>)(\s*<a:r\b[^>]*>(?:(?!<\/a:r>)[\s\S])*?<a:t\b[^>]*>)(\{[\s\S]*?)(<\/a:t><\/a:r>)/,
+      (match, abreRun1, texto1, fechaRun1, abreRun2, texto2, fechaRun2) => {
+        return `${abreRun1}${texto1}${texto2}${fechaRun1}`;
+      }
+    );
+    if (proximo === out) break;
+    out = proximo;
+    iteracoes++;
+  }
+
+  // Garante que não sobrou nenhuma tag XML interna ou espaço dentro de {{chave}}
+  out = out.replace(/\{\{([\s\S]*?)\}\}/g, (m, interno) => {
+    const limpo = interno.replace(/<[^>]+>/g, '').replace(/\s+/g, '').trim();
+    return `{{${limpo}}}`;
+  });
+
+  return out;
+}
+
 // Preenche o slide .pptx mantendo exatamente tamanhos, fontes, cores e distanciamentos originais,
 // aplicando NEGRITO APENAS em {{Nome_Monitor}} e {{total_horas_extenso}} / {{total_horas}}
 function preencherTemplatePptx(templateBuffer, dados) {
@@ -1346,87 +1387,83 @@ function preencherTemplatePptx(templateBuffer, dados) {
   for (const slidePath of slideFiles) {
     let xml = pzip.file(slidePath).asText();
 
-    // 1. Reagrupa tags {{...}} caso o PowerPoint/Google Slides tenha fragmentado entre vários <a:t>
-    xml = xml.replace(/\{\{([\s\S]*?)\}\}/g, (match, interno) => {
-      const chaveLimpa = interno.replace(/<[^>]+>/g, '').replace(/\s+/g, '').trim();
-      return `{{${chaveLimpa}}}`;
-    });
+    // Processa parágrafo a parágrafo para reagrupar tags {{...}} quebradas em múltiplas runs <a:r>
+    xml = xml.replace(/<a:p\b([^>]*)>([\s\S]*?)<\/a:p>/g, (pXml, pAttrs, pInner) => {
+      let novoPInner = consolidarPlaceholdersEmParagrafo(pInner);
 
-    // 2. Aplica regras ABNT de parágrafo (justificado + espaçamento 1,5) apenas no parágrafo do corpo do certificado
-    xml = xml.replace(/<a:p\b[^>]*>([\s\S]*?)<\/a:p>/g, (pXml, pInner) => {
-      if (!/Certificamos\s+que/i.test(pInner)) return pXml;
-
-      let novoPInner = pInner;
-      if (/<a:pPr\b([^>]*)>([\s\S]*?)<\/a:pPr>/.test(novoPInner)) {
-        novoPInner = novoPInner.replace(/<a:pPr\b([^>]*)>([\s\S]*?)<\/a:pPr>/, (m, attrs, pPrBody) => {
-          const cleanAttrs = attrs.replace(/\balgn="[^"]*"/g, '');
-          const bodySemLnSpc = pPrBody.replace(/<a:lnSpc>[\s\S]*?<\/a:lnSpc>/g, '');
-          return `<a:pPr${cleanAttrs} algn="just"><a:lnSpc><a:spcPct val="150000"/></a:lnSpc>${bodySemLnSpc}</a:pPr>`;
-        });
-      } else if (/<a:pPr\b([^>]*)\/>/.test(novoPInner)) {
-        novoPInner = novoPInner.replace(/<a:pPr\b([^>]*)\/>/, (m, attrs) => {
-          const cleanAttrs = attrs.replace(/\balgn="[^"]*"/g, '');
-          return `<a:pPr${cleanAttrs} algn="just"><a:lnSpc><a:spcPct val="150000"/></a:lnSpc></a:pPr>`;
-        });
-      } else {
-        novoPInner = `<a:pPr algn="just"><a:lnSpc><a:spcPct val="150000"/></a:lnSpc></a:pPr>${novoPInner}`;
+      // Aplica regras ABNT de parágrafo (justificado + espaçamento 1,5) apenas no parágrafo do corpo do certificado
+      if (/Certificamos\s+que/i.test(novoPInner)) {
+        if (/<a:pPr\b([^>]*)>([\s\S]*?)<\/a:pPr>/.test(novoPInner)) {
+          novoPInner = novoPInner.replace(/<a:pPr\b([^>]*)>([\s\S]*?)<\/a:pPr>/, (m, attrs, pPrBody) => {
+            const cleanAttrs = attrs.replace(/\balgn="[^"]*"/g, '');
+            const bodySemLnSpc = pPrBody.replace(/<a:lnSpc>[\s\S]*?<\/a:lnSpc>/g, '');
+            return `<a:pPr${cleanAttrs} algn="just"><a:lnSpc><a:spcPct val="150000"/></a:lnSpc>${bodySemLnSpc}</a:pPr>`;
+          });
+        } else if (/<a:pPr\b([^>]*)\/>/.test(novoPInner)) {
+          novoPInner = novoPInner.replace(/<a:pPr\b([^>]*)\/>/, (m, attrs) => {
+            const cleanAttrs = attrs.replace(/\balgn="[^"]*"/g, '');
+            return `<a:pPr${cleanAttrs} algn="just"><a:lnSpc><a:spcPct val="150000"/></a:lnSpc></a:pPr>`;
+          });
+        } else {
+          novoPInner = `<a:pPr algn="just"><a:lnSpc><a:spcPct val="150000"/></a:lnSpc></a:pPr>${novoPInner}`;
+        }
       }
-      return `<a:p>${novoPInner}</a:p>`;
-    });
 
-    // 3. Processa cada bloco <a:r>...</a:r> mantendo 100% do tamanho e estilo original,
-    // ativando negrito (b="1") SOMENTE no nome do monitor e na quantidade de horas
-    xml = xml.replace(/<a:r\b[^>]*>([\s\S]*?)<\/a:r>/g, (runXml, runInner) => {
-      const rPrMatch = runInner.match(/<a:rPr\b[\s\S]*?(?:\/>|<\/a:rPr>)/);
-      const rPr = rPrMatch ? rPrMatch[0] : '<a:rPr lang="pt-BR"/>';
-      const tMatch = runInner.match(/<a:t\b[^>]*>([\s\S]*?)<\/a:t>/);
-      if (!tMatch) return runXml;
+      // Substitui os marcadores em cada bloco <a:r> preservando 100% do tamanho e estilo da caixa original
+      novoPInner = novoPInner.replace(/<a:r\b[^>]*>([\s\S]*?)<\/a:r>/g, (runXml, runInner) => {
+        const rPrMatch = runInner.match(/<a:rPr\b[\s\S]*?(?:\/>|<\/a:rPr>)/);
+        const rPr = rPrMatch ? rPrMatch[0] : '<a:rPr lang="pt-BR"/>';
+        const tMatch = runInner.match(/<a:t\b[^>]*>([\s\S]*?)<\/a:t>/);
+        if (!tMatch) return runXml;
 
-      const texto = tMatch[1];
-      if (!texto.includes('{{')) return runXml;
+        const texto = tMatch[1];
+        if (!texto.includes('{{')) return runXml;
 
-      // Suporte completo caso {{texto_atestado}} também seja usado
-      if (/\{\{texto_atestado\}\}/i.test(texto)) {
-        const partes = texto.split(/\{\{texto_atestado\}\}/i);
+        // Suporte completo caso {{texto_atestado}} seja usado
+        if (/\{\{texto_atestado\}\}/i.test(texto)) {
+          const partes = texto.split(/\{\{texto_atestado\}\}/i);
+          let saida = '';
+          if (partes[0]) saida += criarRunPreservandoEstilo(rPr, partes[0], false);
+          saida += criarRunPreservandoEstilo(rPr, 'Certificamos que ', false);
+          saida += criarRunPreservandoEstilo(rPr, dados.nome_monitor, true);
+          saida += criarRunPreservandoEstilo(rPr, ` atuou como monitor(a) de ${dados.turma_ou_disciplina} cumprindo a carga horária `, false);
+          saida += criarRunPreservandoEstilo(rPr, dados.total_horas_extenso, true);
+          saida += criarRunPreservandoEstilo(rPr, ' de atividades de monitoria.', false);
+          if (partes[1]) saida += criarRunPreservandoEstilo(rPr, partes[1], false);
+          return saida;
+        }
+
+        // Substituição granular:
+        // {{Nome_Monitor}}, {{total_horas_extenso}}, {{total_horas}} -> NEGRITO (true)
+        // Texto comum, {{turma_ou_disciplina}}, {{data_emissao}} -> NORMAL (false)
+        const tokens = texto.split(/(\{\{[a-zA-Z0-9_]+\}\})/g);
         let saida = '';
-        if (partes[0]) saida += criarRunPreservandoEstilo(rPr, partes[0], false);
-        saida += criarRunPreservandoEstilo(rPr, 'Certificamos que ', false);
-        saida += criarRunPreservandoEstilo(rPr, dados.nome_monitor, true);
-        saida += criarRunPreservandoEstilo(rPr, ` atuou como monitor(a) de ${dados.turma_ou_disciplina} cumprindo a carga horária `, false);
-        saida += criarRunPreservandoEstilo(rPr, dados.total_horas_extenso, true);
-        saida += criarRunPreservandoEstilo(rPr, ' de atividades de monitoria.', false);
-        if (partes[1]) saida += criarRunPreservandoEstilo(rPr, partes[1], false);
-        return saida;
-      }
-
-      // Substituição granular preservando o tamanho e estilo de cada caixa de texto:
-      // {{Nome_Monitor}}, {{total_horas_extenso}}, {{total_horas}} -> NEGRITO (true)
-      // Texto ao redor, {{turma_ou_disciplina}}, {{data_emissao}} -> NORMAL (false)
-      const tokens = texto.split(/(\{\{[a-zA-Z0-9_]+\}\})/g);
-      let saida = '';
-      for (const tok of tokens) {
-        if (!tok) continue;
-        const mTag = tok.match(/^\{\{([a-zA-Z0-9_]+)\}\}$/);
-        if (mTag) {
-          const chave = mTag[1].toLowerCase();
-          if (chave === 'nome_monitor') {
-            saida += criarRunPreservandoEstilo(rPr, dados.nome_monitor, true);
-          } else if (chave === 'total_horas_extenso') {
-            saida += criarRunPreservandoEstilo(rPr, dados.total_horas_extenso, true);
-          } else if (chave === 'total_horas') {
-            saida += criarRunPreservandoEstilo(rPr, dados.total_horas, true);
-          } else if (chave === 'total_horas_curto') {
-            saida += criarRunPreservandoEstilo(rPr, dados.total_horas_curto, true);
-          } else if (Object.prototype.hasOwnProperty.call(mapaSimples, chave)) {
-            saida += criarRunPreservandoEstilo(rPr, mapaSimples[chave], false);
+        for (const tok of tokens) {
+          if (!tok) continue;
+          const mTag = tok.match(/^\{\{([a-zA-Z0-9_]+)\}\}$/);
+          if (mTag) {
+            const chave = mTag[1].toLowerCase();
+            if (chave === 'nome_monitor') {
+              saida += criarRunPreservandoEstilo(rPr, dados.nome_monitor, true);
+            } else if (chave === 'total_horas_extenso') {
+              saida += criarRunPreservandoEstilo(rPr, dados.total_horas_extenso, true);
+            } else if (chave === 'total_horas') {
+              saida += criarRunPreservandoEstilo(rPr, dados.total_horas, true);
+            } else if (chave === 'total_horas_curto') {
+              saida += criarRunPreservandoEstilo(rPr, dados.total_horas_curto, true);
+            } else if (Object.prototype.hasOwnProperty.call(mapaSimples, chave)) {
+              saida += criarRunPreservandoEstilo(rPr, mapaSimples[chave], false);
+            } else {
+              saida += criarRunPreservandoEstilo(rPr, tok, false);
+            }
           } else {
             saida += criarRunPreservandoEstilo(rPr, tok, false);
           }
-        } else {
-          saida += criarRunPreservandoEstilo(rPr, tok, false);
         }
-      }
-      return saida;
+        return saida;
+      });
+
+      return `<a:p${pAttrs}>${novoPInner}</a:p>`;
     });
 
     pzip.file(slidePath, xml);
