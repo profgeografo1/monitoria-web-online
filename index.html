@@ -3,11 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gestão de Monitorias — Painel Web + Drive Explorer + Certificados PPTX</title>
+  <title>Gestão de Monitorias — Painel Web e Integração Google Drive</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.7/dist/pizzip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <style>
     :root {
       --bg: #f1f5f9;
@@ -103,11 +101,10 @@
       place-items: center;
       font-size: .82rem;
     }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     .grid-3 { display: grid; grid-template-columns: 1.2fr 1.6fr 1.2fr; gap: 1rem; }
-    @media (max-width: 820px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+    @media (max-width: 820px) { .grid-3 { grid-template-columns: 1fr; } }
     .field label { display: block; font-size: .8rem; font-weight: 700; color: var(--muted); margin-bottom: .35rem; }
-    input[type=text], input[type=password], input[type=number], select {
+    input[type=text], input[type=password], select {
       width: 100%;
       padding: .55rem .75rem;
       border: 1px solid var(--border);
@@ -201,7 +198,6 @@
       text-transform: uppercase;
     }
     .badge-pdf { background: #fee2e2; color: #b91c1c; }
-    .badge-pptx { background: #ffedd5; color: #c2410c; }
     .badge-xlsx { background: #dcfce7; color: #15803d; }
 
     .dropzone {
@@ -216,16 +212,7 @@
     .dropzone:hover, .dropzone.dragover { border-color: var(--primary); background: var(--primary-soft); }
     .dropzone strong { display: block; color: var(--primary); margin-bottom: .2rem; }
     .dropzone span { color: var(--muted); font-size: .8rem; }
-    .tags-box {
-      background: #f8fafc;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: .75rem 1rem;
-      margin-bottom: 1rem;
-      font-size: .82rem;
-      color: #334155;
-      line-height: 1.5;
-    }
+
     .btn {
       display: inline-flex;
       align-items: center;
@@ -242,8 +229,6 @@
     .btn:disabled { opacity: .6; cursor: not-allowed; }
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
-    .btn-success { background: var(--success); color: #fff; }
-    .btn-success:hover:not(:disabled) { background: var(--success-hover); }
     .btn-drive { background: var(--drive); color: #fff; }
     .btn-drive:hover:not(:disabled) { background: var(--drive-hover); }
     .btn-outline { background: #fff; color: var(--text); border: 1px solid var(--border); }
@@ -282,7 +267,7 @@
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: #f8fafc; }
     tr.inativo td { opacity: .45; }
-    td input[type=text], td input[type=number] {
+    td input[type=text] {
       border-color: transparent;
       background: transparent;
       padding: .35rem .4rem;
@@ -291,7 +276,6 @@
     .status-msg.erro { color: var(--danger); }
     .status-msg.ok { color: var(--success); }
     .helper { font-size: .78rem; color: var(--muted); margin-top: .5rem; display: block; }
-    code { background: #f1f5f9; padding: .1rem .35rem; border-radius: 4px; font-size: .82em; color: #334155; }
     details summary { cursor: pointer; list-style: none; }
     details summary::-webkit-details-marker { display: none; }
     .actions-row { display: flex; gap: .75rem; flex-wrap: wrap; margin-top: 1rem; align-items: center; }
@@ -304,10 +288,10 @@
       <div class="brand-icon">M</div>
       <div>
         <h1>Gestão de Monitorias</h1>
-        <p>Extração de fichas manuscritas, cálculo exato em horas/minutos e certificados (.pptx)</p>
+        <p>Extração de fichas manuscritas, cálculo exato em horas/minutos e planilha consolidada (.xlsx)</p>
       </div>
     </div>
-    <span class="pill">● DOM XML Parser + Negrito Seletivo</span>
+    <span class="pill">● Visão IA + Google Drive</span>
   </div>
 </header>
 
@@ -326,7 +310,7 @@
         <div class="field">
           <label for="provedorApi">Provedor de IA</label>
           <select id="provedorApi" onchange="alternarProvedor()">
-            <option value="gemini" selected>Google AI Studio (Chave AQ. / AIza)</option>
+            <option value="gemini" selected>Google AI Studio (Chave AIza)</option>
             <option value="groq">Groq (Chave gsk_)</option>
             <option value="openrouter">OpenRouter (Chave sk-or-)</option>
           </select>
@@ -337,7 +321,7 @@
         </div>
         <div class="field">
           <label for="apiModel">Modelo de Visão</label>
-          <input type="text" id="apiModel" value="gemini-3.8-flash" onchange="salvarConfig()">
+          <input type="text" id="apiModel" value="gemini-2.5-flash" onchange="salvarConfig()">
         </div>
       </div>
       <div class="field" style="margin-top:1rem">
@@ -365,7 +349,7 @@
         </div>
         <div class="explorer-actions">
           <button type="button" class="btn btn-outline btn-sm" onclick="criarSubpastaAqui()">+ Nova Subpasta Aqui</button>
-          <button type="button" class="btn btn-drive btn-sm" id="btnPuxarDrive" onclick="puxarArquivosDaPastaAtual()" disabled>⬇ Puxar Arquivos Desta Pasta</button>
+          <button type="button" class="btn btn-drive btn-sm" id="btnPuxarDrive" onclick="puxarArquivosDaPastaAtual()" disabled>⬇ Puxar PDFs Desta Pasta</button>
         </div>
       </div>
 
@@ -375,7 +359,7 @@
           <div id="listaSubpastas"><span class="helper" style="margin:0">Aguardando abertura do Drive...</span></div>
         </div>
         <div class="explorer-pane">
-          <div class="explorer-pane-title">Arquivos nesta pasta (PDF, Apresentação PPTX, Planilha)</div>
+          <div class="explorer-pane-title">Arquivos nesta pasta (PDF e Planilha)</div>
           <div id="listaArquivosPasta"><span class="helper" style="margin:0">Nenhum arquivo listado.</span></div>
         </div>
       </div>
@@ -394,7 +378,7 @@
     <div id="statusLeitura" class="status-msg"></div>
   </section>
 
-  <!-- Etapa 3: Conferência -->
+  <!-- Etapa 3: Conferência e Exportação da Planilha -->
   <section class="card" id="secaoTabela" style="display:none">
     <div class="card-header">
       <div class="step-title">
@@ -427,50 +411,7 @@
     </div>
     <div class="actions-row">
       <button class="btn btn-primary" onclick="baixarExcel()">Baixar Planilha (.xlsx)</button>
-      <button class="btn btn-drive" onclick="salvarPlanilhaNoDrive()">☁ Salvar Planilha na Pasta Aberta do Drive</button>
-    </div>
-  </section>
-
-  <!-- Etapa 4: Passo Final -->
-  <section class="card" id="secaoAtestados">
-    <div class="card-header">
-      <div class="step-title">
-        <span class="step-badge">4</span>
-        <span>Passo Final: Gerar 1 Certificado por Monitor (.pptx)</span>
-      </div>
-    </div>
-
-    <div class="tags-box">
-      <strong>Motor DOM XML + Layout do Modelo:</strong><br>
-      • Lê e preenche via árvore XML nativa (<code>DOMParser</code>) todos os parágrafos do seu slide modelo, mantendo <strong>tamanhos de fonte</strong>, <strong>posições</strong>, <strong>cores</strong> e <strong>assinaturas</strong>.<br>
-      • Formata em <strong>negrito</strong> exclusivamente <code>{{Nome_Monitor}}</code> e <code>{{total_horas_extenso}}</code> / <code>{{total_horas}}</code>, mantendo o texto do corpo em fonte regular e alinhamento justificado com espaçamento 1,5 (ABNT).
-    </div>
-
-    <div class="grid-2">
-      <div class="dropzone" id="zonaPptx" onclick="document.getElementById('inputPptx').click()">
-        <strong id="labelPptx">1. Upload do Template de Certificado (.pptx)</strong>
-        <span>Envie o arquivo PowerPoint modelo ou puxe da pasta do Drive</span>
-        <input type="file" id="inputPptx" accept=".pptx" style="display:none" onchange="limparDrivePptx()">
-      </div>
-      <div class="dropzone" onclick="document.getElementById('inputXlsxRevisado').click()">
-        <strong id="labelXlsx">2. Planilha Revisada (.xlsx) *Opcional</strong>
-        <span>Lê a guia <code>Somatoria_Por_Monitor</code> se não houver dados na Etapa 3</span>
-        <input type="file" id="inputXlsxRevisado" accept=".xlsx,.xls" style="display:none" onchange="limparDriveXlsx()">
-      </div>
-    </div>
-
-    <div class="drive-explorer" style="margin-top:.5rem; margin-bottom:1rem; padding:.75rem 1rem;">
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.5rem;">
-        <span id="labelDestinoResumo" style="font-weight:700; color:var(--drive);">
-          📂 Pasta de destino ativa no Drive: Nenhuma pasta aberta ainda
-        </span>
-        <button type="button" class="btn btn-outline btn-sm" onclick="criarSubpastaAqui()">+ Criar Subpasta de Destino Aqui</button>
-      </div>
-    </div>
-
-    <div class="actions-row">
-      <button class="btn btn-success" id="btnGerarAtestados" onclick="gerarCertificadosPptx('zip')">Baixar Certificados (.zip)</button>
-      <button class="btn btn-drive" id="btnSalvarAtestadosDrive" onclick="gerarCertificadosPptx('drive')">☁ Salvar Certificados na Pasta Aberta</button>
+      <button class="btn btn-drive" id="btnSalvarPlanilhaDrive" onclick="salvarPlanilhaNoDrive()">☁ Salvar Planilha na Pasta Aberta do Drive</button>
     </div>
     <div id="statusExport" class="status-msg"></div>
   </section>
@@ -482,7 +423,7 @@
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 let registros = [];
-let driveBuffers = { pdfs: [], pptx: null, xlsx: null };
+let driveBuffers = { pdfs: [] };
 let pastaAtualDrive = { id: '', nome: '', paiId: null };
 
 const $ = id => document.getElementById(id);
@@ -495,7 +436,12 @@ function normalizarHorario(valor) {
   if (valor == null) return '';
   let s = String(valor).trim().toLowerCase().replace(/^:+|:+$/g, '');
   let m = s.match(/^(\d{1,3})\s*h\s*(\d{0,2})/);
-  if (m) return `${m[1].padStart(2, '0')}:${(m[2] || '00').padStart(2, '0')}`;
+  if (m) {
+    const h = Number(m[1]), min = Number(m[2] || 0);
+    if (h >= 0 && min >= 0 && min <= 59) {
+      return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+    }
+  }
   m = s.match(/^(\d{1,3}):(\d{1,2})/);
   if (m) {
     const h = Number(m[1]), min = Number(m[2]);
@@ -568,6 +514,15 @@ function formatarMinutosExtenso(totalMinutos) {
   return `${txtH} e ${txtM}`;
 }
 
+function normalizarChaveNome(nome) {
+  return String(nome || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .toLocaleUpperCase('pt-BR');
+}
+
 function base64ParaArrayBuffer(base64) {
   const bin = atob(base64);
   const bytes = new Uint8Array(bin.length);
@@ -588,7 +543,10 @@ function arrayBufferParaBase64(buffer) {
 window.addEventListener('DOMContentLoaded', () => {
   if (localStorage.getItem('mon_provedor')) $('provedorApi').value = localStorage.getItem('mon_provedor');
   if (localStorage.getItem('mon_apiKey')) $('apiKey').value = localStorage.getItem('mon_apiKey');
-  if (localStorage.getItem('mon_apiModel')) $('apiModel').value = localStorage.getItem('mon_apiModel');
+  if (localStorage.getItem('mon_apiModel')) {
+    const salvo = localStorage.getItem('mon_apiModel');
+    $('apiModel').value = salvo === 'gemini-3.8-flash' ? 'gemini-2.5-flash' : salvo;
+  }
   if (localStorage.getItem('mon_driveUrl')) $('driveWebhookUrl').value = localStorage.getItem('mon_driveUrl');
 
   if (!$('apiKey').value || !$('driveWebhookUrl').value) $('painelConfig').open = true;
@@ -610,18 +568,6 @@ window.addEventListener('DOMContentLoaded', () => {
       atualizarLabelPdf();
     }
   });
-
-  const zonaPptx = $('zonaPptx');
-  zonaPptx.addEventListener('dragover', e => { e.preventDefault(); zonaPptx.classList.add('dragover'); });
-  zonaPptx.addEventListener('dragleave', () => zonaPptx.classList.remove('dragover'));
-  zonaPptx.addEventListener('drop', e => {
-    e.preventDefault();
-    zonaPptx.classList.remove('dragover');
-    if (e.dataTransfer.files.length) {
-      $('inputPptx').files = e.dataTransfer.files;
-      limparDrivePptx();
-    }
-  });
 });
 
 function atualizarLabelPdf() {
@@ -635,28 +581,13 @@ function atualizarLabelPdf() {
       : 'Ou clique aqui / arraste arquivos PDF locais';
 }
 
-function limparDrivePptx() {
-  driveBuffers.pptx = null;
-  const f = $('inputPptx').files;
-  $('labelPptx').textContent = f.length
-    ? `Template PPTX local: ${f[0].name}`
-    : '1. Upload do Template de Certificado (.pptx)';
-}
-
-function limparDriveXlsx() {
-  driveBuffers.xlsx = null;
-  const f = $('inputXlsxRevisado').files;
-  $('labelXlsx').textContent = f.length
-    ? `Planilha local: ${f[0].name}`
-    : '2. Planilha Revisada (.xlsx) *Opcional';
-}
-
 function alternarProvedor() {
   const p = $('provedorApi').value;
   const m = $('apiModel');
-  if (p === 'gemini') m.value = 'gemini-3.8-flash';
+  if (p === 'gemini') m.value = 'gemini-2.5-flash';
   if (p === 'groq') m.value = 'meta-llama/llama-4-scout-17b-16e-instruct';
   if (p === 'openrouter') m.value = 'qwen/qwen2.5-vl-32b-instruct:free';
+  salvarConfig();
 }
 
 function salvarConfig() {
@@ -688,6 +619,7 @@ async function navegarPastaDrive(folderId = '', silencioso = false) {
   try {
     const query = folderId ? `?acao=navegar&folderId=${encodeURIComponent(folderId)}` : '?acao=navegar';
     const resp = await fetch(`${url}${query}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} ao consultar o Google Drive.`);
     const data = await resp.json();
     if (!data.ok) throw new Error(data.erro || 'Não foi possível abrir a pasta.');
 
@@ -695,41 +627,65 @@ async function navegarPastaDrive(folderId = '', silencioso = false) {
     localStorage.setItem('mon_ultimaPastaId', pastaAtualDrive.id);
 
     $('labelPastaAtual').textContent = `📂 Pasta aberta: ${pastaAtualDrive.nome}`;
-    $('labelDestinoResumo').textContent = `📂 Pasta de destino ativa no Drive: ${pastaAtualDrive.nome}`;
     $('btnVoltarPasta').disabled = !pastaAtualDrive.paiId;
     $('btnPuxarDrive').disabled = false;
 
     const divPastas = $('listaSubpastas');
-    divPastas.innerHTML = '';
+    divPastas.replaceChildren();
     if (!data.subpastas.length) {
-      divPastas.innerHTML = '<span class="helper" style="margin:0">Nenhuma subpasta dentro desta pasta.</span>';
+      const vazio = document.createElement('span');
+      vazio.className = 'helper';
+      vazio.style.margin = '0';
+      vazio.textContent = 'Nenhuma subpasta dentro desta pasta.';
+      divPastas.appendChild(vazio);
     } else {
       for (const sp of data.subpastas) {
         const el = document.createElement('div');
         el.className = 'folder-item';
-        el.innerHTML = `<span>📁 ${sp.nome}</span><span style="color:var(--muted); font-size:.78rem;">Abrir ▸</span>`;
+
+        const spanNome = document.createElement('span');
+        spanNome.textContent = `📁 ${sp.nome}`;
+
+        const spanAcao = document.createElement('span');
+        spanAcao.style.color = 'var(--muted)';
+        spanAcao.style.fontSize = '.78rem';
+        spanAcao.textContent = 'Abrir ▸';
+
+        el.append(spanNome, spanAcao);
         el.onclick = () => navegarPastaDrive(sp.id);
         divPastas.appendChild(el);
       }
     }
 
+    const arquivosFiltrados = (data.arquivos || []).filter(a => a.tipo === 'pdf' || a.tipo === 'xlsx');
     const divArq = $('listaArquivosPasta');
-    divArq.innerHTML = '';
-    if (!data.arquivos.length) {
-      divArq.innerHTML = '<span class="helper" style="margin:0">Nenhum PDF, Apresentação PPTX ou Planilha nesta pasta.</span>';
+    divArq.replaceChildren();
+    if (!arquivosFiltrados.length) {
+      const vazio = document.createElement('span');
+      vazio.className = 'helper';
+      vazio.style.margin = '0';
+      vazio.textContent = 'Nenhum PDF ou Planilha nesta pasta.';
+      divArq.appendChild(vazio);
     } else {
-      for (const arq of data.arquivos) {
+      for (const arq of arquivosFiltrados) {
         const el = document.createElement('div');
         el.className = 'file-item';
-        const classeBadge = arq.tipo === 'pdf' ? 'badge-pdf' : (arq.tipo === 'pptx' ? 'badge-pptx' : 'badge-xlsx');
-        el.innerHTML = `<span class="badge-tipo ${classeBadge}">${arq.tipo}</span><span>${arq.nome}</span>`;
+
+        const badge = document.createElement('span');
+        badge.className = `badge-tipo ${arq.tipo === 'pdf' ? 'badge-pdf' : 'badge-xlsx'}`;
+        badge.textContent = arq.tipo;
+
+        const spanArq = document.createElement('span');
+        spanArq.textContent = arq.nome;
+
+        el.append(badge, spanArq);
         divArq.appendChild(el);
       }
     }
 
     if (!silencioso) {
       status.className = 'status-msg';
-      status.textContent = `Pasta "${pastaAtualDrive.nome}" aberta (${data.subpastas.length} subpasta(s), ${data.arquivos.length} arquivo(s)).`;
+      status.textContent = `Pasta "${pastaAtualDrive.nome}" aberta (${data.subpastas.length} subpasta(s), ${arquivosFiltrados.length} arquivo(s)).`;
     }
   } catch (e) {
     $('labelPastaAtual').textContent = '❌ Erro ao abrir pasta';
@@ -770,6 +726,7 @@ async function criarSubpastaAqui() {
         nomePasta: nomeNova.trim()
       })
     });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} ao criar pasta.`);
     const data = await resp.json();
     if (!data.ok) throw new Error(data.erro || 'Erro ao criar subpasta.');
 
@@ -787,26 +744,20 @@ async function puxarArquivosDaPastaAtual() {
   const status = $('statusLeitura');
   const btn = $('btnPuxarDrive');
   status.className = 'status-msg';
-  status.textContent = `Baixando arquivos de "${pastaAtualDrive.nome}" para a memória...`;
+  status.textContent = `Baixando PDFs de "${pastaAtualDrive.nome}" para a memória...`;
   btn.disabled = true;
 
   try {
     const resp = await fetch(`${url}?acao=ler_arquivos&folderId=${encodeURIComponent(pastaAtualDrive.id)}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} ao baixar arquivos.`);
     const data = await resp.json();
     if (!data.ok) throw new Error(data.erro || 'Falha ao puxar arquivos.');
 
-    driveBuffers = { pdfs: [], pptx: null, xlsx: null };
+    driveBuffers = { pdfs: [] };
 
     for (const arq of (data.arquivos || [])) {
-      const buffer = base64ParaArrayBuffer(arq.base64);
-      if (arq.tipo === 'pdf') {
-        driveBuffers.pdfs.push({ nome: arq.nome, buffer });
-      } else if (arq.tipo === 'pptx' && !driveBuffers.pptx) {
-        driveBuffers.pptx = { nome: arq.nome, buffer };
-        $('labelPptx').textContent = `☁ Drive: ${arq.nome}`;
-      } else if (arq.tipo === 'xlsx' && !driveBuffers.xlsx) {
-        driveBuffers.xlsx = { nome: arq.nome, buffer };
-        $('labelXlsx').textContent = `☁ Drive: ${arq.nome}`;
+      if (arq.tipo === 'pdf' && arq.base64) {
+        driveBuffers.pdfs.push({ nome: arq.nome, buffer: base64ParaArrayBuffer(arq.base64) });
       }
     }
 
@@ -815,9 +766,7 @@ async function puxarArquivosDaPastaAtual() {
     }
 
     status.className = 'status-msg ok';
-    status.textContent = `Arquivos prontos em memória: ${driveBuffers.pdfs.length} PDF(s)` +
-      (driveBuffers.pptx ? `, template "${driveBuffers.pptx.nome}"` : '') +
-      (driveBuffers.xlsx ? `, planilha "${driveBuffers.xlsx.nome}"` : '') + '.';
+    status.textContent = `Arquivos prontos em memória: ${driveBuffers.pdfs.length} PDF(s).`;
   } catch (e) {
     status.className = 'status-msg erro';
     status.textContent = 'Erro ao puxar arquivos: ' + e.message;
@@ -827,7 +776,7 @@ async function puxarArquivosDaPastaAtual() {
 }
 
 // =========================================================================
-// LEITURA DE PDFs
+// LEITURA DE PDFs VIA VISÃO DE IA
 // =========================================================================
 async function paginaParaBase64Contrastada(page) {
   const viewport = page.getViewport({ scale: 1.6 });
@@ -849,9 +798,9 @@ async function paginaParaBase64Contrastada(page) {
 }
 
 async function consultarVisao(provedor, key, model, prompt, dataUrl) {
-  if (provedor === 'gemini' || /^AIza/.test(key) || /^AQ\./.test(key)) {
+  if (provedor === 'gemini' || /^AIza/.test(key)) {
     const base64 = dataUrl.split(',')[1];
-    const reserva = model === 'gemini-3.5-flash-lite' ? 'gemini-3.8-flash' : 'gemini-3.5-flash-lite';
+    const reserva = model === 'gemini-2.5-flash-lite' ? 'gemini-2.5-flash' : 'gemini-2.5-flash-lite';
     const candidates = [...new Set([model, reserva])];
 
     for (let t = 0; t < candidates.length; t++) {
@@ -930,7 +879,7 @@ async function processarArquivos() {
     for (const f of localFiles) fontesPdf.push({ nome: f.name, buffer: await f.arrayBuffer() });
   }
 
-  if (!fontesPdf.length) return alert('Selecione PDFs locais ou clique em "Puxar Arquivos Desta Pasta" no Drive.');
+  if (!fontesPdf.length) return alert('Selecione PDFs locais ou clique em "Puxar PDFs Desta Pasta" no Drive.');
 
   status.className = 'status-msg';
   btn.disabled = true;
@@ -1045,9 +994,9 @@ function renderizarTabela() {
     [
       ['text', 'nome_monitor', 'Nome do monitor'],
       ['text', 'turma_ou_disciplina', 'Turma/Disc.'],
-      ['text', 'data', ''],
-      ['text', 'hora_entrada', ''],
-      ['text', 'hora_saida', ''],
+      ['text', 'data', 'DD/MM/AAAA'],
+      ['text', 'hora_entrada', 'HH:MM'],
+      ['text', 'hora_saida', 'HH:MM'],
       ['duracao', 'minutos', 'HH:MM'],
       ['text', 'assuntos_ministrados', 'Conteúdos']
     ].forEach(([type, key, placeholder]) => {
@@ -1102,7 +1051,7 @@ function agruparAprovados() {
 
   const map = new Map();
   for (const r of aprovados) {
-    const chave = r.nome_monitor.trim().toLocaleUpperCase('pt-BR');
+    const chave = normalizarChaveNome(r.nome_monitor);
     if (!map.has(chave)) {
       map.set(chave, {
         nome_monitor: r.nome_monitor.trim(),
@@ -1203,490 +1152,47 @@ function baixarExcel() {
 
 async function salvarPlanilhaNoDrive() {
   const url = $('driveWebhookUrl').value.trim();
-  if (!url) return alert('Configure a URL do Google Apps Script na Etapa 1.');
+  if (!url) {
+    $('painelConfig').open = true;
+    return alert('Configure a URL do Google Apps Script na Etapa 1.');
+  }
   if (!pastaAtualDrive.id) return alert('Abra uma pasta no explorador do Drive (Etapa 2) antes de salvar.');
 
   const wb = construirWorkbookExcel();
   if (!wb) return alert('Nenhum registro aprovado para salvar.');
 
   const status = $('statusExport');
+  const btn = $('btnSalvarPlanilhaDrive');
   status.className = 'status-msg';
   status.textContent = `Enviando planilha para "${pastaAtualDrive.nome}"...`;
-
-  const xlsxBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  const resp = await fetch(url, {
-    method: 'POST',
-    body: JSON.stringify({
-      acao: 'salvar_arquivos',
-      folderId: pastaAtualDrive.id,
-      arquivos: [{
-        nome: 'controle_monitores.xlsx',
-        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        base64: arrayBufferParaBase64(xlsxBuffer)
-      }]
-    })
-  });
-  const res = await resp.json();
-  if (res.ok) {
-    status.className = 'status-msg ok';
-    status.textContent = `Planilha controle_monitores.xlsx salva dentro de "${res.nomePasta}"!`;
-    navegarPastaDrive(pastaAtualDrive.id, true);
-  } else {
-    status.className = 'status-msg erro';
-    status.textContent = 'Erro ao salvar planilha no Drive: ' + (res.erro || '');
-  }
-}
-
-// =========================================================================
-// PASSO FINAL: CERTIFICADOS CONSOLIDADOS VIA DOM XML PARSER (.PPTX)
-// =========================================================================
-async function lerConsolidadosDeBuffer(buffer) {
-  const wb = XLSX.read(buffer, { type: 'array' });
-  if (!wb.SheetNames.length) throw new Error('A planilha não possui guias.');
-
-  const exact = wb.SheetNames.find(n => n.trim().toLocaleLowerCase('pt-BR') === 'somatoria_por_monitor');
-  const partial = wb.SheetNames.find(n => n.toLocaleLowerCase('pt-BR').includes('somatoria'));
-  const ws = wb.Sheets[exact || partial || wb.SheetNames[wb.SheetNames.length - 1]];
-  if (!ws) throw new Error('A guia Somatoria_Por_Monitor não foi encontrada.');
-
-  const linhas = XLSX.utils.sheet_to_json(ws, { defval: '' });
-  if (!linhas.length) throw new Error('A guia Somatoria_Por_Monitor está vazia.');
-
-  const mapa = new Map();
-  for (const rawRow of linhas) {
-    const row = {};
-    for (const [k, v] of Object.entries(rawRow)) {
-      row[k.trim().toLocaleLowerCase('pt-BR')] = v;
-    }
-
-    const nome = String(row['nome_monitor'] || row['monitor(a)'] || row['monitor'] || '').trim();
-    if (!nome || /^total\s+geral$/i.test(nome)) continue;
-
-    const valBruto = row['total_horas'] ?? row['total de horas'] ?? row['duracao'] ?? row['horas'] ?? 0;
-    const min = parseDuracaoParaMinutos(valBruto);
-    const turmas = String(row['turmas_disciplinas'] || row['turma_ou_disciplina'] || row['turma / disciplina'] || '').trim();
-
-    const chave = nome.toLocaleUpperCase('pt-BR');
-    if (!mapa.has(chave)) {
-      mapa.set(chave, { nome_monitor: nome, turmas: new Set(), total_minutos: 0 });
-    }
-    const c = mapa.get(chave);
-    if (turmas) turmas.split(',').forEach(v => v.trim() && c.turmas.add(v.trim()));
-    c.total_minutos += min;
-  }
-
-  return [...mapa.values()].map(c => ({
-    nome_monitor: c.nome_monitor,
-    turmas_disciplinas: [...c.turmas].join(', '),
-    total_minutos: c.total_minutos
-  }));
-}
-
-function escaparXml(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-function montarDadosCertificado(mon, dataEmissao) {
-  const hhmm = formatarMinutosHHMM(mon.total_minutos);
-  const curto = formatarMinutosCurto(mon.total_minutos);
-  const extenso = formatarMinutosExtenso(mon.total_minutos);
-  const turmas = mon.turmas_disciplinas || 'disciplinas curriculares';
-
-  return {
-    nome_monitor: mon.nome_monitor,
-    turma_ou_disciplina: turmas,
-    total_horas: hhmm,
-    total_horas_curto: curto,
-    total_horas_extenso: extenso,
-    data_emissao: dataEmissao,
-    texto_atestado: `Certificamos que ${mon.nome_monitor} atuou como monitor(a) de ${turmas} cumprindo a carga horária ${extenso} de atividades de monitoria.`
-  };
-}
-
-// Preenche o slide .pptx usando DOMParser nativo para ler o texto real de cada parágrafo,
-// preservando 100% dos tamanhos, fontes, posições e assinaturas, aplicando NEGRITO apenas em
-// {{Nome_Monitor}} e {{total_horas_extenso}} / {{total_horas}}
-function preencherTemplatePptx(templateBuffer, dados) {
-  const pzip = new PizZip(templateBuffer);
-  const slideFiles = Object.keys(pzip.files).filter(f => /^ppt\/slides\/slide\d+\.xml$/.test(f));
-
-  if (!slideFiles.length) {
-    throw new Error('O arquivo .pptx enviado não contém slides válidos.');
-  }
-
-  const parser = new DOMParser();
-  const serializer = new XMLSerializer();
-  const NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
-
-  const getTag = (el, local) => {
-    const byNs = el.getElementsByTagNameNS(NS_A, local);
-    if (byNs && byNs.length) return byNs;
-    return el.getElementsByTagName(`a:${local}`);
-  };
-
-  for (const slidePath of slideFiles) {
-    const xmlStr = pzip.file(slidePath).asText();
-    const doc = parser.parseFromString(xmlStr, 'application/xml');
-    const paragrafos = [...getTag(doc, 'p')];
-
-    for (const p of paragrafos) {
-      const runs = [...p.childNodes].filter(
-        n => n.nodeType === 1 && (n.localName === 'r' || n.nodeName === 'a:r')
-      );
-      if (!runs.length) continue;
-
-      // Concatena o texto real de todas as runs do parágrafo (resolve qualquer quebra de {{...}})
-      let textoCompleto = '';
-      const mapaRuns = [];
-      for (const r of runs) {
-        const tNodes = getTag(r, 't');
-        const txt = tNodes.length ? (tNodes[0].textContent || '') : '';
-        const rPrNodes = getTag(r, 'rPr');
-        const rPrClone = rPrNodes.length ? rPrNodes[0].cloneNode(true) : null;
-        mapaRuns.push({ start: textoCompleto.length, end: textoCompleto.length + txt.length, rPr: rPrClone });
-        textoCompleto += txt;
-      }
-
-      if (!textoCompleto.includes('{{')) continue;
-
-      // Aplica regras ABNT de parágrafo (justificado + espaçamento 1,5) apenas no corpo do certificado
-      if (/Certificamos\s+que/i.test(textoCompleto)) {
-        let pPr = [...p.childNodes].find(n => n.nodeType === 1 && (n.localName === 'pPr' || n.nodeName === 'a:pPr'));
-        if (!pPr) {
-          pPr = doc.createElementNS(NS_A, 'a:pPr');
-          p.insertBefore(pPr, p.firstChild);
-        }
-        pPr.setAttribute('algn', 'just');
-        let lnSpc = [...getTag(pPr, 'lnSpc')][0];
-        if (!lnSpc) {
-          lnSpc = doc.createElementNS(NS_A, 'a:lnSpc');
-          pPr.appendChild(lnSpc);
-        }
-        lnSpc.innerHTML = '';
-        const spcPct = doc.createElementNS(NS_A, 'a:spcPct');
-        spcPct.setAttribute('val', '150000');
-        lnSpc.appendChild(spcPct);
-      }
-
-      // Monta a lista de segmentos substituídos preservando o estilo original de cada trecho
-      const segmentos = [];
-      const regexTag = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
-      let ultimoIdx = 0;
-      let m;
-
-      const obterRPrNoIndice = idx => {
-        const found = mapaRuns.find(item => idx >= item.start && idx < item.end) || mapaRuns[0];
-        return found && found.rPr ? found.rPr.cloneNode(true) : doc.createElementNS(NS_A, 'a:rPr');
-      };
-
-      while ((m = regexTag.exec(textoCompleto)) !== null) {
-        if (m.index > ultimoIdx) {
-          segmentos.push({
-            texto: textoCompleto.slice(ultimoIdx, m.index),
-            negrito: false,
-            rPr: obterRPrNoIndice(ultimoIdx)
-          });
-        }
-
-        const chave = m[1].toLowerCase();
-        const rPrTag = obterRPrNoIndice(m.index);
-
-        if (chave === 'texto_atestado') {
-          segmentos.push({ texto: 'Certificamos que ', negrito: false, rPr: rPrTag.cloneNode(true) });
-          segmentos.push({ texto: dados.nome_monitor, negrito: true, rPr: rPrTag.cloneNode(true) });
-          segmentos.push({ texto: ` atuou como monitor(a) de ${dados.turma_ou_disciplina} cumprindo a carga horária `, negrito: false, rPr: rPrTag.cloneNode(true) });
-          segmentos.push({ texto: dados.total_horas_extenso, negrito: true, rPr: rPrTag.cloneNode(true) });
-          segmentos.push({ texto: ' de atividades de monitoria.', negrito: false, rPr: rPrTag.cloneNode(true) });
-        } else if (chave === 'nome_monitor') {
-          segmentos.push({ texto: dados.nome_monitor, negrito: true, rPr: rPrTag });
-        } else if (chave === 'total_horas_extenso') {
-          segmentos.push({ texto: dados.total_horas_extenso, negrito: true, rPr: rPrTag });
-        } else if (chave === 'total_horas') {
-          segmentos.push({ texto: dados.total_horas, negrito: true, rPr: rPrTag });
-        } else if (chave === 'total_horas_curto') {
-          segmentos.push({ texto: dados.total_horas_curto, negrito: true, rPr: rPrTag });
-        } else if (chave === 'turma_ou_disciplina') {
-          segmentos.push({ texto: dados.turma_ou_disciplina, negrito: false, rPr: rPrTag });
-        } else if (chave === 'data_emissao') {
-          segmentos.push({ texto: dados.data_emissao, negrito: false, rPr: rPrTag });
-        } else {
-          segmentos.push({ texto: m[0], negrito: false, rPr: rPrTag });
-        }
-
-        ultimoIdx = m.index + m[0].length;
-      }
-
-      if (ultimoIdx < textoCompleto.length) {
-        segmentos.push({
-          texto: textoCompleto.slice(ultimoIdx),
-          negrito: false,
-          rPr: obterRPrNoIndice(ultimoIdx)
-        });
-      }
-
-      // Remove as runs antigas do parágrafo e insere as novas runs com negrito seletivo
-      const refDepois = runs[runs.length - 1].nextSibling;
-      for (const r of runs) p.removeChild(r);
-
-      for (const seg of segmentos) {
-        if (!seg.texto) continue;
-        const novaRun = doc.createElementNS(NS_A, 'a:r');
-        const rPr = seg.rPr || doc.createElementNS(NS_A, 'a:rPr');
-        rPr.setAttribute('b', seg.negrito ? '1' : '0');
-        novaRun.appendChild(rPr);
-
-        const novoT = doc.createElementNS(NS_A, 'a:t');
-        novoT.setAttribute('xml:space', 'preserve');
-        novoT.textContent = seg.texto;
-        novaRun.appendChild(novoT);
-
-        p.insertBefore(novaRun, refDepois);
-      }
-    }
-
-    pzip.file(slidePath, serializer.serializeToString(doc));
-  }
-
-  return pzip;
-}
-
-// Fallback estruturado com o mesmo layout de 2 assinaturas e corpo ABNT caso nenhum .pptx seja enviado
-function criarPptxModeloPadrao(dados) {
-  const zip = new PizZip();
-
-  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
-  <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
-  <Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
-  <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
-  <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
-</Types>`);
-
-  zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
-</Relationships>`);
-
-  zip.file('ppt/presentation.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
-  <p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>
-  <p:sldIdLst><p:sldId id="256" r:id="rId2"/></p:sldIdLst>
-  <p:sldSz cx="12192000" cy="6858000"/>
-  <p:notesSz cx="6858000" cy="9144000"/>
-</p:presentation>`);
-
-  zip.file('ppt/_rels/presentation.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>
-  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
-</Relationships>`);
-
-  zip.file('ppt/slideMasters/slideMaster1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
-  <p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld>
-  <p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst>
-</p:sldMaster>`);
-
-  zip.file('ppt/slideMasters/_rels/slideMaster1.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
-</Relationships>`);
-
-  zip.file('ppt/slideLayouts/slideLayout1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" type="blank">
-  <p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/></p:spTree></p:cSld>
-</p:sldLayout>`);
-
-  zip.file('ppt/slideLayouts/_rels/slideLayout1.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
-</Relationships>`);
-
-  zip.file('ppt/slides/_rels/slide1.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
-</Relationships>`);
-
-  zip.file('ppt/slides/slide1.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
-  <p:cSld>
-    <p:spTree>
-      <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
-      <p:grpSpPr/>
-      <p:sp>
-        <p:nvSpPr><p:cNvPr id="2" name="Titulo"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>
-        <p:spPr><a:xfrm><a:off x="1080000" y="650000"/><a:ext cx="10032000" cy="1050000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
-        <p:txBody>
-          <a:bodyPr wrap="square"/>
-          <a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="pt-BR" sz="2800" b="1"><a:latin typeface="Arial"/></a:rPr><a:t>CERTIFICADO</a:t></a:r></a:p>
-          <a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="pt-BR" sz="1600" b="0"><a:latin typeface="Arial"/></a:rPr><a:t>Monitoria de Estudos</a:t></a:r></a:p>
-        </p:txBody>
-      </p:sp>
-      <p:sp>
-        <p:nvSpPr><p:cNvPr id="3" name="DestaqueMonitor"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>
-        <p:spPr><a:xfrm><a:off x="1080000" y="1850000"/><a:ext cx="10032000" cy="600000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
-        <p:txBody>
-          <a:bodyPr wrap="square"/>
-          <a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="pt-BR" sz="2000" b="1"><a:latin typeface="Arial"/></a:rPr><a:t>${escaparXml(dados.nome_monitor)}</a:t></a:r></a:p>
-        </p:txBody>
-      </p:sp>
-      <p:sp>
-        <p:nvSpPr><p:cNvPr id="4" name="Corpo"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>
-        <p:spPr><a:xfrm><a:off x="1080000" y="2650000"/><a:ext cx="10032000" cy="2100000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
-        <p:txBody>
-          <a:bodyPr wrap="square"/>
-          <a:p>
-            <a:pPr algn="just"><a:lnSpc><a:spcPct val="150000"/></a:lnSpc></a:pPr>
-            <a:r><a:rPr lang="pt-BR" sz="1400" b="0"><a:latin typeface="Arial"/></a:rPr><a:t xml:space="preserve">Certificamos que </a:t></a:r>
-            <a:r><a:rPr lang="pt-BR" sz="1400" b="1"><a:latin typeface="Arial"/></a:rPr><a:t>${escaparXml(dados.nome_monitor)}</a:t></a:r>
-            <a:r><a:rPr lang="pt-BR" sz="1400" b="0"><a:latin typeface="Arial"/></a:rPr><a:t xml:space="preserve"> atuou como monitor(a) de ${escaparXml(dados.turma_ou_disciplina)} cumprindo a carga horária </a:t></a:r>
-            <a:r><a:rPr lang="pt-BR" sz="1400" b="1"><a:latin typeface="Arial"/></a:rPr><a:t>${escaparXml(dados.total_horas_extenso)}</a:t></a:r>
-            <a:r><a:rPr lang="pt-BR" sz="1400" b="0"><a:latin typeface="Arial"/></a:rPr><a:t xml:space="preserve"> de atividades de monitoria. ${escaparXml(dados.data_emissao)}</a:t></a:r>
-          </a:p>
-        </p:txBody>
-      </p:sp>
-      <p:sp>
-        <p:nvSpPr><p:cNvPr id="5" name="Assinatura1"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>
-        <p:spPr><a:xfrm><a:off x="1300000" y="5250000"/><a:ext cx="4200000" cy="950000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
-        <p:txBody>
-          <a:bodyPr wrap="square"/>
-          <a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="pt-BR" sz="1200" b="0"><a:latin typeface="Arial"/></a:rPr><a:t>____________________________________</a:t></a:r></a:p>
-          <a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="pt-BR" sz="1200" b="0"><a:latin typeface="Arial"/></a:rPr><a:t>Coordenador (a)</a:t></a:r></a:p>
-        </p:txBody>
-      </p:sp>
-      <p:sp>
-        <p:nvSpPr><p:cNvPr id="6" name="Assinatura2"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>
-        <p:spPr><a:xfrm><a:off x="6692000" y="5250000"/><a:ext cx="4200000" cy="950000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr>
-        <p:txBody>
-          <a:bodyPr wrap="square"/>
-          <a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="pt-BR" sz="1200" b="0"><a:latin typeface="Arial"/></a:rPr><a:t>____________________________________</a:t></a:r></a:p>
-          <a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="pt-BR" sz="1200" b="0"><a:latin typeface="Arial"/></a:rPr><a:t>Júnior Tiago Ben</a:t></a:r></a:p>
-          <a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="pt-BR" sz="1100" b="0"><a:latin typeface="Arial"/></a:rPr><a:t>Diretor do Instituto Ivoti</a:t></a:r></a:p>
-        </p:txBody>
-      </p:sp>
-    </p:spTree>
-  </p:cSld>
-</p:sld>`);
-
-  return zip;
-}
-
-async function gerarCertificadosPptx(destino) {
-  const pptxInput = $('inputPptx');
-  const xlsxInput = $('inputXlsxRevisado');
-  const status = $('statusExport');
-  const btnZip = $('btnGerarAtestados');
-  const btnDrive = $('btnSalvarAtestadosDrive');
-
-  status.className = 'status-msg';
-
-  let templateBuffer = null;
-  if (pptxInput && pptxInput.files && pptxInput.files.length) {
-    templateBuffer = await pptxInput.files[0].arrayBuffer();
-  } else if (typeof driveBuffers !== 'undefined' && driveBuffers.pptx) {
-    templateBuffer = driveBuffers.pptx.buffer;
-  }
-
-  if (destino === 'drive') {
-    if (!$('driveWebhookUrl').value.trim()) {
-      $('painelConfig').open = true;
-      return alert('Cole a URL do App da Web na Etapa 1 para salvar no Drive.');
-    }
-    if (!pastaAtualDrive.id) {
-      return alert('Abra a pasta de destino no explorador do Drive (Etapa 2) antes de salvar.');
-    }
-  }
-
-  btnZip.disabled = true;
-  btnDrive.disabled = true;
+  btn.disabled = true;
 
   try {
-    let monitores = [];
-    if (xlsxInput && xlsxInput.files && xlsxInput.files.length) {
-      monitores = await lerConsolidadosDeBuffer(await xlsxInput.files[0].arrayBuffer());
-    } else if (typeof driveBuffers !== 'undefined' && driveBuffers.xlsx) {
-      monitores = await lerConsolidadosDeBuffer(driveBuffers.xlsx.buffer);
-    } else {
-      monitores = agruparAprovados().consolidados;
-    }
+    const xlsxBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const resp = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({
+        acao: 'salvar_arquivos',
+        folderId: pastaAtualDrive.id,
+        arquivos: [{
+          nome: 'controle_monitores.xlsx',
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          base64: arrayBufferParaBase64(xlsxBuffer)
+        }]
+      })
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} ao enviar planilha.`);
+    const res = await resp.json();
+    if (!res.ok) throw new Error(res.erro || 'Falha ao salvar no Drive.');
 
-    monitores = monitores.filter(m => m.nome_monitor && m.nome_monitor.trim());
-    if (!monitores.length) {
-      throw new Error('Nenhum monitor encontrado. Leia os PDFs na Etapa 2 ou importe a planilha Somatoria_Por_Monitor.');
-    }
-
-    const zip = new JSZip();
-    const loteDrive = [];
-    const hoje = new Date().toLocaleDateString('pt-BR');
-    const mimePptx = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-
-    for (let i = 0; i < monitores.length; i++) {
-      status.textContent = `Gerando certificado PPTX ${i + 1} de ${monitores.length}...`;
-      const dados = montarDadosCertificado(monitores[i], hoje);
-      const pptZip = templateBuffer
-        ? preencherTemplatePptx(templateBuffer, dados)
-        : criarPptxModeloPadrao(dados);
-
-      const nomeLimpo = monitores[i].nome_monitor.replace(/[\\/*?:"<>|]/g, '').trim().replace(/\s+/g, '_') || `Monitor_${i + 1}`;
-      const nomeArquivo = `Certificado_${nomeLimpo}_${dados.total_horas_curto}.pptx`;
-
-      if (destino === 'drive') {
-        const arrBuf = pptZip.generate({ type: 'arraybuffer' });
-        loteDrive.push({
-          nome: nomeArquivo,
-          mimeType: mimePptx,
-          base64: arrayBufferParaBase64(arrBuf)
-        });
-      } else {
-        const blob = pptZip.generate({ type: 'blob', mimeType: mimePptx });
-        zip.file(nomeArquivo, blob);
-      }
-      await esperar(10);
-    }
-
-    if (destino === 'drive') {
-      status.textContent = `Enviando ${loteDrive.length} certificado(s) PPTX para "${pastaAtualDrive.nome}"...`;
-      const resp = await fetch($('driveWebhookUrl').value.trim(), {
-        method: 'POST',
-        body: JSON.stringify({
-          acao: 'salvar_arquivos',
-          folderId: pastaAtualDrive.id,
-          arquivos: loteDrive
-        })
-      });
-      const res = await resp.json();
-      if (!res.ok) throw new Error(res.erro || 'Erro ao gravar arquivos no Drive.');
-
-      status.className = 'status-msg ok';
-      status.textContent = `Sucesso: ${res.salvos} certificado(s) PPTX salvo(s) dentro de "${res.nomePasta}"!`;
-      navegarPastaDrive(pastaAtualDrive.id, true);
-    } else {
-      status.textContent = 'Compactando arquivo ZIP...';
-      const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
-      const url = URL.createObjectURL(zipBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'certificados_monitores_pptx.zip';
-      document.body.append(a);
-      a.click();
-      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 30000);
-
-      status.className = 'status-msg ok';
-      status.textContent = `Concluído: ${monitores.length} certificado(s) PPTX gerado(s).`;
-    }
+    status.className = 'status-msg ok';
+    status.textContent = `Planilha controle_monitores.xlsx salva dentro de "${res.nomePasta || pastaAtualDrive.nome}"!`;
+    navegarPastaDrive(pastaAtualDrive.id, true);
   } catch (e) {
     status.className = 'status-msg erro';
-    status.textContent = 'Erro: ' + e.message;
+    status.textContent = 'Erro ao salvar planilha no Drive: ' + e.message;
   } finally {
-    btnZip.disabled = false;
-    btnDrive.disabled = false;
+    btn.disabled = false;
   }
 }
 </script>
